@@ -1,0 +1,380 @@
+============================================================
+[Timestamp]      2025-04-29 18:51:12
+[Encoder]        resnet
+[Ratio]          1/1 = 1.00
+[False Avg.]     avg_false = 1789.6667, avg_total_false = 154.0000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9969
+  - coverage            : 0.9103
+  - authenticity        : 0.9642
+  - richness            : 0.9672
+
+[Average K-Fold Accuracy]     : 0.9642
+[Average Final Test Accuracy] : 0.9110
+============================================================
+[Timestamp]      2025-04-29 18:58:44
+[Encoder]        resnet
+[Ratio]          1/2 = 0.50
+[False Avg.]     avg_false = 1771.3333, avg_total_false = 9.5000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9996
+  - coverage            : 0.9088
+  - authenticity        : 0.9289
+  - richness            : 0.9293
+
+[Average K-Fold Accuracy]     : 0.9289
+[Average Final Test Accuracy] : 0.8998
+============================================================
+[Timestamp]      2025-04-29 19:11:04
+[Encoder]        resnet
+[Ratio]          1/5 = 0.20
+[False Avg.]     avg_false = 802.6667, avg_total_false = 6.4000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9994
+  - coverage            : 0.9092
+  - authenticity        : 0.9202
+  - richness            : 0.9208
+
+[Average K-Fold Accuracy]     : 0.9202
+[Average Final Test Accuracy] : 0.8826
+============================================================
+[Timestamp]      2025-04-29 19:32:08
+[Encoder]        resnet
+[Ratio]          1/10 = 0.10
+[False Avg.]     avg_false = 453.3333, avg_total_false = 7.0000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9986
+  - coverage            : 0.9085
+  - authenticity        : 0.9096
+  - richness            : 0.9109
+
+[Average K-Fold Accuracy]     : 0.9096
+[Average Final Test Accuracy] : 0.8665
+============================================================
+[Timestamp]      2025-04-29 20:09:52
+[Encoder]        resnet
+[Ratio]          1/20 = 0.05
+[False Avg.]     avg_false = 239.3333, avg_total_false = 5.2500
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9979
+  - coverage            : 0.9097
+  - authenticity        : 0.8958
+  - richness            : 0.8977
+
+[Average K-Fold Accuracy]     : 0.8958
+[Average Final Test Accuracy] : 0.8475
+============================================================
+[Timestamp]      2025-04-29 21:34:57
+[Encoder]        resnet
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 152.6667, avg_total_false = 6.1800
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9938
+  - coverage            : 0.9103
+  - authenticity        : 0.8510
+  - richness            : 0.8562
+
+[Average K-Fold Accuracy]     : 0.8510
+[Average Final Test Accuracy] : 0.8210
+============================================================
+Experiment completed at 2025-04-29 21:34:57
+============================================================
+
+
+
+
+
+
+
+
+============================================================
+[Timestamp]      2025-04-29 21:41:15
+[Encoder]        vit
+[Ratio]          1/1 = 1.00
+[False Avg.]     avg_false = 574.6667, avg_total_false = 76.0000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9985
+  - coverage            : 0.9822
+  - authenticity        : 0.9885
+  - richness            : 0.9900
+
+[Average K-Fold Accuracy]     : 0.9885
+[Average Final Test Accuracy] : 0.9658
+============================================================
+[Timestamp]      2025-04-29 21:46:56
+[Encoder]        vit
+[Ratio]          1/2 = 0.50
+[False Avg.]     avg_false = 803.3333, avg_total_false = 0.5000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 1.0000
+  - coverage            : 0.9813
+  - authenticity        : 0.9672
+  - richness            : 0.9672
+
+[Average K-Fold Accuracy]     : 0.9672
+[Average Final Test Accuracy] : 0.9627
+============================================================
+[Timestamp]      2025-04-29 21:55:00
+[Encoder]        vit
+[Ratio]          1/5 = 0.20
+[False Avg.]     avg_false = 370.3333, avg_total_false = 0.2000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 1.0000
+  - coverage            : 0.9811
+  - authenticity        : 0.9662
+  - richness            : 0.9662
+
+[Average K-Fold Accuracy]     : 0.9662
+[Average Final Test Accuracy] : 0.9606
+============================================================
+[Timestamp]      2025-04-29 22:08:12
+[Encoder]        vit
+[Ratio]          1/10 = 0.10
+[False Avg.]     avg_false = 187.3333, avg_total_false = 0.0000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 1.0000
+  - coverage            : 0.9810
+  - authenticity        : 0.9662
+  - richness            : 0.9662
+
+[Average K-Fold Accuracy]     : 0.9662
+[Average Final Test Accuracy] : 0.9587
+============================================================
+[Timestamp]      2025-04-29 22:30:23
+[Encoder]        vit
+[Ratio]          1/20 = 0.05
+[False Avg.]     avg_false = 85.3333, avg_total_false = 0.4500
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9998
+  - coverage            : 0.9811
+  - authenticity        : 0.9636
+  - richness            : 0.9637
+
+[Average K-Fold Accuracy]     : 0.9636
+[Average Final Test Accuracy] : 0.9561
+============================================================
+[Timestamp]      2025-04-29 23:17:57
+[Encoder]        vit
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 82.0000, avg_total_false = 1.2200
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9988
+  - coverage            : 0.9815
+  - authenticity        : 0.9159
+  - richness            : 0.9170
+
+[Average K-Fold Accuracy]     : 0.9159
+[Average Final Test Accuracy] : 0.9500
+============================================================
+Experiment completed at 2025-04-29 23:17:57
+============================================================
+
+
+
+
+
+
+
+============================================================
+[Timestamp]      2025-04-29 23:24:03
+[Encoder]        dino
+[Ratio]          1/1 = 1.00
+[False Avg.]     avg_false = 235.3333, avg_total_false = 24.0000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9995
+  - coverage            : 0.9858
+  - authenticity        : 0.9953
+  - richness            : 0.9958
+
+[Average K-Fold Accuracy]     : 0.9953
+[Average Final Test Accuracy] : 0.9838
+============================================================
+[Timestamp]      2025-04-29 23:29:36
+[Encoder]        dino
+[Ratio]          1/2 = 0.50
+[False Avg.]     avg_false = 1004.0000, avg_total_false = 0.5000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 1.0000
+  - coverage            : 0.9855
+  - authenticity        : 0.9575
+  - richness            : 0.9575
+
+[Average K-Fold Accuracy]     : 0.9575
+[Average Final Test Accuracy] : 0.9832
+============================================================
+[Timestamp]      2025-04-29 23:37:36
+[Encoder]        dino
+[Ratio]          1/5 = 0.20
+[False Avg.]     avg_false = 349.3333, avg_total_false = 0.0000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 1.0000
+  - coverage            : 0.9856
+  - authenticity        : 0.9549
+  - richness            : 0.9549
+
+[Average K-Fold Accuracy]     : 0.9549
+[Average Final Test Accuracy] : 0.9817
+============================================================
+[Timestamp]      2025-04-29 23:50:32
+[Encoder]        dino
+[Ratio]          1/10 = 0.10
+[False Avg.]     avg_false = 216.3333, avg_total_false = 0.1000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 1.0000
+  - coverage            : 0.9858
+  - authenticity        : 0.9493
+  - richness            : 0.9493
+
+[Average K-Fold Accuracy]     : 0.9493
+[Average Final Test Accuracy] : 0.9797
+============================================================
+[Timestamp]      2025-04-30 00:12:21
+[Encoder]        dino
+[Ratio]          1/20 = 0.05
+[False Avg.]     avg_false = 136.3333, avg_total_false = 0.5000
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9998
+  - coverage            : 0.9854
+  - authenticity        : 0.9413
+  - richness            : 0.9415
+
+[Average K-Fold Accuracy]     : 0.9413
+[Average Final Test Accuracy] : 0.9771
+============================================================
+[Timestamp]      2025-04-30 00:58:57
+[Encoder]        dino
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 63.0000, avg_total_false = 0.2800
+
+[Average Metric Results per K-Fold]:
+  - scale               : 0.9997
+  - coverage            : 0.9852
+  - authenticity        : 0.9292
+  - richness            : 0.9294
+
+[Average K-Fold Accuracy]     : 0.9292
+[Average Final Test Accuracy] : 0.9711
+============================================================
+Experiment completed at 2025-04-30 00:58:57
+============================================================
+
+
+
+
+
+
+============================================================
+[Timestamp]      2025-05-19 10:54:29
+[Encoder]        resnet
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 150.3333, avg_total_false = 3.0000
+
+[Average Metric Results per K-Fold]:
+============================================================
+[Timestamp]      2025-05-19 10:57:51
+[Encoder]        resnet
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 149.0000, avg_total_false = 7.0000
+
+[Average Metric Results per K-Fold]:
+============================================================
+[Timestamp]      2025-05-19 11:00:25
+[Encoder]        resnet
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 151.6667, avg_total_false = 7.0000
+
+[Average Metric Results per K-Fold]:
+  [WHAT]
+    - scale          : 49.6500
+    - coverage       : 0.9689
+    - authenticity   : 0.9590
+    - richness       : 0.9940
+  [WHERE]
+    - scale          : 49.6500
+    - coverage       : 0.8682
+    - authenticity   : 0.7470
+    - richness       : 0.9547
+  [HOW]
+    - scale          : 49.6500
+    - coverage       : 0.8972
+    - authenticity   : 0.8390
+    - richness       : 0.9547
+
+[Average K-Fold Accuracy]     : 0.8483
+[Average Final Test Accuracy] : 0.8202
+============================================================
+Experiment completed at 2025-05-19 11:00:25
+============================================================
+============================================================
+[Timestamp]      2025-05-19 11:01:21
+[Encoder]        vit
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 79.6667, avg_total_false = 2.0000
+
+[Average Metric Results per K-Fold]:
+  [WHAT]
+    - scale          : 49.9000
+    - coverage       : 0.9918
+    - authenticity   : 0.9760
+    - richness       : 0.9970
+  [WHERE]
+    - scale          : 49.9000
+    - coverage       : 0.9740
+    - authenticity   : 0.8640
+    - richness       : 0.9810
+  [HOW]
+    - scale          : 49.9000
+    - coverage       : 0.9793
+    - authenticity   : 0.9210
+    - richness       : 0.9830
+
+[Average K-Fold Accuracy]     : 0.9203
+[Average Final Test Accuracy] : 0.9486
+============================================================
+Experiment completed at 2025-05-19 11:01:21
+============================================================
+============================================================
+[Timestamp]      2025-05-19 11:02:16
+[Encoder]        dino
+[Ratio]          1/50 = 0.02
+[False Avg.]     avg_false = 77.0000, avg_total_false = 1.0000
+
+[Average Metric Results per K-Fold]:
+  [WHAT]
+    - scale          : 49.9500
+    - coverage       : 0.9936
+    - authenticity   : 0.9750
+    - richness       : 0.9960
+  [WHERE]
+    - scale          : 49.9500
+    - coverage       : 0.9785
+    - authenticity   : 0.9350
+    - richness       : 0.9925
+  [HOW]
+    - scale          : 49.9500
+    - coverage       : 0.9851
+    - authenticity   : 0.8590
+    - richness       : 0.9925
+
+[Average K-Fold Accuracy]     : 0.9230
+[Average Final Test Accuracy] : 0.9689
+============================================================
+Experiment completed at 2025-05-19 11:02:16
+============================================================
