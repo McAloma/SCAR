@@ -16,8 +16,8 @@ class ResNet_Encoder:
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(model_name, cache_dir=cache_dir)
         self.model.eval()
        
-    def encode(self, image):
-        inputs = self.feature_extractor(images=image, return_tensors="pt").to(self.device)
+    def encode(self, image, do_rescale=True):
+        inputs = self.feature_extractor(images=image, return_tensors="pt", do_rescale=do_rescale).to(self.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
             hidden = outputs.last_hidden_state 
@@ -25,8 +25,8 @@ class ResNet_Encoder:
             image_embedding = pooled.view(pooled.size(0), -1).cpu().numpy() 
         return image_embedding
     
-    def encode_batch(self, images):
-        inputs = self.feature_extractor(images=images, return_tensors="pt").to(self.device)
+    def encode_batch(self, images, do_rescale=True):
+        inputs = self.feature_extractor(images=images, return_tensors="pt", do_rescale=do_rescale).to(self.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
             hidden = outputs.last_hidden_state 
@@ -45,15 +45,15 @@ class ViT_Encoder:
         self.feature_extractor = ViTFeatureExtractor.from_pretrained(model_name, cache_dir=cache_dir)
         self.model.eval()
 
-    def encode(self, image):
-        inputs = self.feature_extractor(images=image, return_tensors="pt").to(self.device)
+    def encode(self, image, do_rescale=True):
+        inputs = self.feature_extractor(images=image, return_tensors="pt", do_rescale=do_rescale).to(self.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
         image_embedding = outputs.last_hidden_state[:, 0].cpu().numpy()
         return image_embedding
 
-    def encode_batch(self, images):
-        inputs = self.feature_extractor(images=images, return_tensors="pt").to(self.device)
+    def encode_batch(self, images, do_rescale=True):
+        inputs = self.feature_extractor(images=images, return_tensors="pt", do_rescale=do_rescale).to(self.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
         image_embedding = outputs.last_hidden_state[:, 0].cpu().numpy()
@@ -70,15 +70,15 @@ class DINO_Encoder:
         self.processor = AutoImageProcessor.from_pretrained(model_name, cache_dir=cache_dir)
         self.model.eval()
 
-    def encode(self, image):
-        inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+    def encode(self, image, do_rescale=True):
+        inputs = self.processor(images=image, return_tensors="pt", do_rescale=do_rescale).to(self.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
         image_embedding = outputs.last_hidden_state[:, 0].cpu().numpy()
         return image_embedding
     
-    def encode_batch(self, images):
-        inputs = self.processor(images=images, return_tensors="pt").to(self.device)
+    def encode_batch(self, images, do_rescale=True):
+        inputs = self.processor(images=images, return_tensors="pt", do_rescale=do_rescale).to(self.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
         image_embedding = outputs.last_hidden_state[:, 0].cpu().numpy()

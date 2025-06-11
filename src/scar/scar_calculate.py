@@ -34,7 +34,6 @@ class SCARcalculation():
         jsd = jensenshannon(p, q, base=2) ** 2
         return jsd
 
-
     def format_as_binary_per_class(self, logits_cpu, preds_cpu, labels_cpu, num_classes):
         logits_cpu = np.array(logits_cpu)
         preds_cpu = np.array(preds_cpu)
@@ -176,6 +175,56 @@ class SCARcalculation():
             }
 
         return metrics_per_task
+    
+    def count_h(self, s, c, a, r):
+        r, delta, err_gen, err_emp = s, 1-c, 1-a, 1-r
+        h = delta * np.exp(2 * r * (err_gen - err_emp + 1e-6) ** 2) 
+
+        return h
+    
+    def fit_lower_exp_function(self, x_list, y_list, lambda_range=(1e-6, 10.0), n_search=100):
+        x = np.array(x_list)
+        y = np.array(y_list)
+
+        if np.any((x <= 0) | (y <= 0)):
+            raise ValueError("x 和 y 必须为正值。")
+
+        best_a = 0
+        best_lambda = None
+
+        lambda_vals = np.logspace(np.log10(lambda_range[0]), np.log10(lambda_range[1]), n_search)
+
+        for lam in lambda_vals:
+            f = 1 - np.exp(-lam * x)
+            if np.any(f <= 0):
+                continue
+
+            a_max = np.min(y / f)             # 使得 a * f(x_i) <= y_i ⇒ a <= y_i / f(x_i)
+
+            if a_max > best_a:
+                best_a = a_max
+                best_lambda = lam
+
+        if best_lambda is None:
+            raise RuntimeError("找不到任何合法的 (a, λ) 组合，使函数位于所有点下方。")
+
+        return best_a, best_lambda
+
+    def predict_foudation(self, ratios, indexes, max_h=-1):
+        scals, coves, auths, richs = indexes
+        hs = [self.count_h(s, c, a, r) for s, c, a, r in zip(scals, coves, auths, richs)]
+
+        cur_h, lambd = self.fit_lower_exp_function(ratios, hs)  
+
+        h = max(cur_h, max_h)
+
+        delta = 0.0001
+        epsilon = 0.01      # general - empirical
+
+        foundation_size = np.log(h/(delta)) / (2 * (epsilon) ** 2)
+
+
+        return cur_h, foundation_size
 
 if __name__ == "__main__":
     example = {
