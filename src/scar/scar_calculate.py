@@ -2,8 +2,8 @@ import sys, os, json, torch
 sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
 
-from scipy.stats import truncnorm, norm
-from scipy.optimize import minimize
+from scipy.stats import norm
+from scipy.optimize import fsolve
 from scipy.spatial.distance import jensenshannon
 
 
@@ -178,11 +178,11 @@ class SCARcalculation():
     
     def count_h(self, s, c, a, r):
         r, delta, err_gen, err_emp = s, 1-c, 1-a, 1-r
-        h = delta * np.exp(2 * r * (err_gen - err_emp + 1e-6) ** 2) 
+        h = delta * np.exp(2 * r * (err_gen - err_emp) ** 2) 
 
         return h
     
-    def fit_lower_exp_function(self, x_list, y_list, lambda_range=(1e-6, 10.0), n_search=100):
+    def fit_lower_exp_function(self, x_list, y_list, lambda_range=(1e-4, 10.0), n_search=1000):
         x = np.array(x_list)
         y = np.array(y_list)
 
@@ -206,25 +206,105 @@ class SCARcalculation():
                 best_lambda = lam
 
         if best_lambda is None:
+            print(x_list)
+            print(y_list)
             raise RuntimeError("找不到任何合法的 (a, λ) 组合，使函数位于所有点下方。")
 
         return best_a, best_lambda
 
-    def predict_foudation(self, ratios, indexes, max_h=-1):
+    def predict_foudation_step(self, ratios, indexes):
         scals, coves, auths, richs = indexes
         hs = [self.count_h(s, c, a, r) for s, c, a, r in zip(scals, coves, auths, richs)]
 
-        cur_h, lambd = self.fit_lower_exp_function(ratios, hs)  
+        # print(ratios)
+        # print(scals)
+        # print(coves)
+        # print(auths)
+        # print(richs)
+        # print(hs)
 
-        h = max(cur_h, max_h)
+        h, lambd = self.fit_lower_exp_function(ratios, hs)  
 
-        delta = 0.0001
+        delta = 0.01
         epsilon = 0.01      # general - empirical
 
         foundation_size = np.log(h/(delta)) / (2 * (epsilon) ** 2)
 
+        return h, foundation_size
+    
+    # def predict_foundation_total(self, ratios, step_hs):
+    #     def equation(t, sums, log_prods_list, k, delta_E):
+    #         "t = 2 * n * epsilon ** 2"
+    #         sum_item = sums * t
+    #         log_prod_item = 0
+    #         for log_prod in log_prods_list:
+    #             log_prod_item = log_prod - t
 
-        return cur_h, foundation_size
+    #         return sum_item - (k - 1) * np.exp(log_prod_item) - delta_E
+
+    #     sums = sum(step_hs)
+    #     log_prods_list = np.log(step_hs)  # 替代乘法
+    #     k = len(step_hs)
+
+    #     delta_E = 0.01
+
+    #     t_initial_guess = 0.001
+    #     t_solution = fsolve(equation, t_initial_guess, args=(sums, log_prods_list, k, delta_E))[0]
+
+    #     epsilon = 0.0001
+    #     foundation_size = t_solution / (2 * epsilon ** 2)
+
+    #     return foundation_size
+
+    
+    # def predict_foundation_total(self, ratios, step_hs):
+    #     def equation(nepsilon2, h_list, k, delta_E):
+    #         t = np.exp(-nepsilon2)  # t = exp(-2nε²)
+    #         sum_h = np.sum(h_list)
+    #         log_prod_h = np.sum(np.log(h_list))
+    #         term1 = t * sum_h
+    #         term2 = (k - 1) * np.exp(k * np.log(t) + log_prod_h)
+    #         return term1 - term2 - delta_E
+
+    #     k = len(step_hs)
+    #     delta_E = 1e-4
+    #     epsilon = 0.01
+    #     nepsilon2_initial_guess = 1.0
+
+    #     # nepsilon2 = 2nε²
+    #     nepsilon2_solution = fsolve(equation, nepsilon2_initial_guess, args=(step_hs, k, delta_E))[0]
+
+    #     foundation_size = nepsilon2_solution / (2 * epsilon ** 2)  # => n
+
+    #     return foundation_size     
+
+    def predict_foundation_total(self, ratios, step_hs):
+        def equation(nepsilon2, h_list, k, delta_E):
+            t = np.exp(-nepsilon2)  # t = exp(-2nε²)
+            sum_h = np.sum(h_list)
+            prod_h = np.prod(h_list)
+            term1 = t * sum_h
+            term2 = (k - 1) * (t ** k) * prod_h
+            return term1 - term2 - delta_E
+
+        k = len(step_hs)
+        delta_E = 1e-4
+        epsilon = 0.01
+
+        try:
+            from scipy.optimize import brentq
+            nepsilon2_solution = brentq(
+                lambda n: equation(n, step_hs, k, delta_E), 1e-6, 20
+            )
+        except Exception as e:
+            print("Root finding failed:", e)
+            return None
+
+        foundation_size = nepsilon2_solution / (2 * epsilon ** 2)  # => n
+        return foundation_size
+    
+
+    
 
 if __name__ == "__main__":
     example = {

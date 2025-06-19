@@ -73,7 +73,7 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
     preds_cpu = preds.cpu().tolist()
     labels_cpu = y_val_device.cpu().tolist()
 
-    return acc, logits_cpu, preds_cpu, labels_cpu
+    return acc, logits_cpu, preds_cpu, labels_cpu, model
 
 
 

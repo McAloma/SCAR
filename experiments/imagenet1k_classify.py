@@ -11,7 +11,7 @@ from src.model.linear import single_train_test
 from src.scar.scar_calculate import SCARcalculation
 
 
-
+# Imagenet sample num 768661+512506
 
 LABEL_INFO_DICT = {
     "origin": {
@@ -45,7 +45,7 @@ class Imagenet1KClassifyTest():
             return json.load(f)
 
     def load_embeddings(self, path):
-        # train_batches = [os.path.join(path, fname) for fname in os.listdir(path)][:8]   # NOTE: test
+        # train_batches = [os.path.join(path, fname) for fname in os.listdir(path)][:16]   # NOTE: test
         train_batches = [os.path.join(path, fname) for fname in os.listdir(path)]
         data = []
         with ThreadPoolExecutor() as executor:
@@ -112,16 +112,38 @@ class Imagenet1KClassifyTest():
         X_test = torch.tensor(X_test, dtype=torch.float32)
         y_test = torch.tensor(y_test, dtype=torch.long)
 
-        all_fold_acc = []
-        x_logits_results = [0] * num_samples          
+        all_acc = []
+        all_logits_cpu = [0] * num_samples          
         y_positive_results = [-1] * num_samples
-        y_labels = [-1] * num_samples
+        all_labels_cpu = [-1] * num_samples
+
+        # if not test_only:
+        #     # -------------------- K-fold Testing --------------------
+        #     kf = StratifiedKFold(n_splits=k_folds, shuffle=False)    
+        #     folds = list(kf.split(X, y))   
+        #     fold_bar = tqdm(enumerate(folds), total=k_folds, ascii=True)
+        #     for fold, (train_idx, val_idx) in fold_bar:
+        #         now = datetime.now().strftime("%H:%M:%S")
+        #         fold_bar.set_description(f"[{now}] Fold {fold+1}/{k_folds} | Task: {label_type}")
+
+        #         X_train, X_val = X[train_idx], X[val_idx]
+        #         y_train, y_val = y[train_idx], y[val_idx]
+
+        #         acc, logits_cpu, preds_cpu, labels_cpu, model = single_train_test(self.device, X_train, y_train, X_val, y_val, num_class)
+
+        #         for idx, logits, pred, label in zip(val_idx, logits_cpu, preds_cpu, labels_cpu):
+        #             x_logits_results[idx] = logits
+        #             y_positive_results[idx] = (pred == label)
+        #             y_labels[idx] = label
+
+        #         all_fold_acc.append(acc)
 
         if not test_only:
-            # -------------------- K-fold Testing --------------------
+            # -------------------- K-fold Training --------------------
             kf = StratifiedKFold(n_splits=k_folds, shuffle=False)    
             folds = list(kf.split(X, y))   
             fold_bar = tqdm(enumerate(folds), total=k_folds, ascii=True)
+            kf_model_list = []
             for fold, (train_idx, val_idx) in fold_bar:
                 now = datetime.now().strftime("%H:%M:%S")
                 fold_bar.set_description(f"[{now}] Fold {fold+1}/{k_folds} | Task: {label_type}")
@@ -129,18 +151,32 @@ class Imagenet1KClassifyTest():
                 X_train, X_val = X[train_idx], X[val_idx]
                 y_train, y_val = y[train_idx], y[val_idx]
 
-                acc, logits_cpu, preds_cpu, labels_cpu = single_train_test(self.device, X_train, y_train, X_val, y_val, num_class)
+                acc, logits_cpu, preds_cpu, labels_cpu, model = single_train_test(self.device, X_train, y_train, X_val, y_val, num_class)
+                kf_model_list.append(model)
 
-                for idx, logits, pred, label in zip(val_idx, logits_cpu, preds_cpu, labels_cpu):
-                    x_logits_results[idx] = logits
-                    y_positive_results[idx] = (pred == label)
-                    y_labels[idx] = label
+            # -------------------- Average model Testing --------------------
+            avg_model = copy.deepcopy(kf_model_list[0])
+            with torch.no_grad():
+                for param_name in avg_model.state_dict().keys():
+                    avg = sum([m.state_dict()[param_name] for m in kf_model_list]) / len(kf_model_list)
+                    avg_model.state_dict()[param_name].copy_(avg)
 
-                all_fold_acc.append(acc)
+            avg_model.eval()
+            with torch.no_grad():
+                X_device = X.to(self.device)
+                y_device = y.to(self.device)
+                logits = avg_model(X_device)
+                preds = torch.argmax(logits, dim=1)
+                all_acc = (preds == y_device).float().mean().item()
+
+            all_logits_cpu = logits.cpu().numpy()
+            y_positive_results = (preds == y_device).cpu().tolist()
+            all_labels_cpu = y_device.cpu().tolist()
 
             # -------------------- K-fold Testing --------------------
-        testing_acc, _, _, _ = single_train_test(self.device, X, y, X_test, y_test, num_class)
-        return num_samples, all_fold_acc, testing_acc, x_logits_results, y_positive_results, y_labels
+        testing_acc, _, _, _, _ = single_train_test(self.device, X, y, X_test, y_test, num_class)
+
+        return num_samples, all_acc, testing_acc, all_logits_cpu, y_positive_results, all_labels_cpu
     
     
 
@@ -156,13 +192,13 @@ def main(encoder_type, label_type, k_folds=5):
     print(f"Total dataset test acc: {total_test_acc}")
 
     # =========================== Primary Set Test ===========================
-    primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=0.8)   # 这里我们先测 primary_set 的数据，reserve_set 作为后续补充的内容。
+    primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=0.6)   # 这里我们先测 primary_set 的数据，reserve_set 作为后续补充的内容。
     data_size, rdata_size = len(primary_set), sum([len(reserve_set[key]) for key in reserve_set])
     print(f"Primary Set Size: {data_size}, Reserve Set Size: {rdata_size}")
 
     indexes_with_ratio = {}
     for ratio in [1, 2, 5]:         # NOTE: test
-    # for ratio in [1, 2, 5, 10, 15, 20, 30, 40, 50]:
+    # for ratio in [1, 2, 5, 10, 15, 20, 30]:
         indexes = []
         type_kfold_accs = defaultdict(list)
         type_test_accs = defaultdict(list)
@@ -170,15 +206,14 @@ def main(encoder_type, label_type, k_folds=5):
         for cur in range(ratio): 
             type_results = {}
 
-            print(f"\n=== Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} in {cur+1}/{ratio} ===")
+            print(f"=== Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} in {cur+1}/{ratio} ===")
             kfold_results = classifier.k_flods_testing_with_label_mapping(primary_set, test_set, k_folds=k_folds, label_type=label_type, sample_ratio=1/ratio)
 
-            num_samples, all_fold_acc, testing_acc, x_logits_results, y_positive_results, y_labels = kfold_results
+            num_samples, all_acc, testing_acc, x_logits_results, y_positive_results, y_labels = kfold_results
             type_results[label_type] = [x_logits_results, y_positive_results, y_labels]
 
             # —————————————— Show Results ——————————————————
-            avg_acc = sum(all_fold_acc) / k_folds
-            type_kfold_accs[label_type].append(avg_acc)
+            type_kfold_accs[label_type].append(all_acc)
             type_test_accs[label_type].append(testing_acc)
 
             # —————————————— False Calculation ——————————————————            
@@ -209,73 +244,84 @@ def main(encoder_type, label_type, k_folds=5):
     # —————————————— Foundation data size Estimation ——————————————————
     ratios = [key for key in indexes_with_ratio]
     tar_res = {}
-    for tar in indexes_with_ratio[1]:
+    for tar in indexes_with_ratio[1.0]:   # tar = 1,2,...
         if tar == 'total':
             continue
         indexes = [[indexes_with_ratio[key][tar][index] for key in ratios] for index in ["scale", 'coverage', 'authenticity', 'richness']]
-        tar_h, tar_size = calculation.predict_foudation(ratios, indexes)
+        tar_h, tar_size = calculation.predict_foudation_step(ratios, indexes)
         tar_res[tar] = (tar_h, tar_size)
 
-    total_indexes = [[indexes_with_ratio[key]['total'][index] for key in ratios] for index in ["scale", 'coverage', 'authenticity', 'richness']]
-    total_h, total_size = calculation.predict_foudation(ratios, total_indexes)
-
-    # for key, (tar_h, tar_size) in tar_res.items():
-    #     print(f"Estimated Foundation Data Size for {key}: {tar_size:.2f} (H: {tar_h:.4f})")
-    # print(f"Estimated Total Foundation Data Size: {total_size:.2f} (H: {total_h:.4f})")
+    # total_indexes = [[indexes_with_ratio[key]['total'][index] for key in ratios] for index in ["scale", 'coverage', 'authenticity', 'richness']]
+    # total_h, total_size = calculation.predict_foudation(ratios, total_indexes)
+    
+    step_hs = [tar_res[key][0] for key in tar_res]      # 所有 step function 所估计的目标建设空间大小
+    foundation_size = calculation.predict_foundation_total(ratios, step_hs)
 
     # —————————————— Fill data with Foundation data size from reserve sample ——————————————————
-    fill_size = total_size - data_size
+    fill_size = max(0, foundation_size - data_size)      # 需要保持非负
     subtype_count = Counter([item['label'] for item in primary_set])
 
     subtype_fill_size = defaultdict(int)
-    for label in indexes_with_ratio[1]:
+    for tar in indexes_with_ratio[1.0]:
         if tar == 'total':
             continue
-        subtype_fill_size[label] = max(0, tar_res[label][1] - subtype_count[label])
+        subtype_fill_size[tar] = max(0, tar_res[tar][1] - subtype_count[tar])
 
     total = sum(subtype_fill_size.values())
     norm_subtype_fill_size = {k: v / total for k, v in subtype_fill_size.items()}
 
-    available_reserve_size = min([fill_size] + [len(reserve_set[key] / norm_subtype_fill_size[key]) for key in subtype_fill_size])
-    print(f"Available Reserve Size: {available_reserve_size}, Fill Size: {fill_size}")
+    available_reserve_sizes = []
+    for key in norm_subtype_fill_size:
+        if (key in reserve_set) and norm_subtype_fill_size[key] > 0:
+            num = min(len(reserve_set[key]), tar_res[key][1] - subtype_count[key]) / norm_subtype_fill_size[key] 
+            available_reserve_sizes.append(num)
+
+    available_reserve_size = min([fill_size] +  available_reserve_sizes)
+    print(f"Available Reserve Size: {available_reserve_size}, Fill Size: {fill_size}.")
 
     extend_set = copy.deepcopy(primary_set)
     for label in subtype_fill_size:
-        add_data_size = int(available_reserve_size * norm_subtype_fill_size[label])
-        add_data = random.sample(reserve_set[label], add_data_size)
-        extend_set.extend(add_data)
+        if label in reserve_set:
+            add_data_size = int(available_reserve_size * norm_subtype_fill_size[label])
+            add_data = random.sample(reserve_set[label], add_data_size)
+            extend_set.extend(add_data)
     print(f"Filled Data size is {len(extend_set)}")
     
     # —————————————— Testing with Fill data  ——————————————————
     kfold_results = classifier.k_flods_testing_with_label_mapping(extend_set, test_set, k_folds=k_folds, label_type=label_type, sample_ratio=1, test_only=True)
-    num_samples, all_fold_acc, testing_acc, x_logits_results, y_positive_results, y_labels = kfold_results
+    num_samples, all_fold_acc, extend_testing_acc, x_logits_results, y_positive_results, y_labels = kfold_results
 
     # =============== SAVE Average Results for this ratio ===============
     result_save_path = "experiments/results/imagenet_experiment_results.txt"
     with open(result_save_path, 'a') as f:
         avg_kfold_acc = sum(type_kfold_accs[label_type]) / ratio
-        avg_test_acc = sum(type_test_accs[label_type]) / ratio
+        primary_test_ass = type_test_accs[label_type][0]
 
-        f.write(f"Label Type: {label_type}\n")
+        f.write("=" * 70 + "\n")
+        f.write(f"\n\n  Encoder: {encoder_type}; Label Type: {label_type}\n")
         f.write("=" * 70 + "\n")
         f.write(f"  Total data size {data_size+rdata_size}; Primary datasize: {data_size}; Extend datasize: {len(extend_set)}.\n")
 
         f.write("=" * 70 + "\n")
-        f.write(f"  Total SCAR feature: {total_h}, {total_size}\n")
-        f.write(f"  Step SCAR feature: {tar_res}\n")
+        f.write(f"  Total Foundation data size estimation: {foundation_size}\n")
+        # f.write(f"  Step SCAR feature: {tar_res}\n")
 
         f.write("=" * 70 + "\n")
         f.write(f"  Avg K-Fold Acc over {ratio} runs: {avg_kfold_acc:.4f}\n")
         f.write(f"  1. Total Data Test Acc over {ratio} runs: {total_test_acc:.4f}\n")
-        f.write(f"  2. Avg Test Acc over {ratio} runs: {avg_test_acc:.4f}\n")
-        f.write(f"  3. Filled Data Test Acc over {ratio} runs: {testing_acc:.4f}\n")
+        f.write(f"  2. Primary Data Test Acc over {ratio} runs: {primary_test_ass:.4f}\n")
+        f.write(f"  3. Extend Data Test Acc over {ratio} runs: {extend_testing_acc:.4f}\n")
+        f.write("=" * 70 + "\n")
+
+
+
 
 
 if __name__ == "__main__":
-    encoder_type = "resnet"  # Choose from 'resnet', 'vit', or 'dino'
+    encoder_type = "vit"  # Choose from 'resnet', 'vit', or 'dino'
     label_type = "origin"  # Define the label types you want to test
     k_folds = 5
-    for encoder_type in ['resnet', 'vit', 'dino']:
-        main(encoder_type, label_type, k_folds)
+    # for encoder_type in ['resnet', 'vit', 'dino']:
+    main(encoder_type, label_type, k_folds)
 
     # python3 experiments/imagenet1k_classify.py
