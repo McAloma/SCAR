@@ -2,57 +2,48 @@ import sys, os, json, torch, copy, random
 sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
 from collections import defaultdict, Counter
-from concurrent.futures import ThreadPoolExecutor
 
 from src.model.linear import single_train_test
 from src.scar.scar_calculate import SCARcalculation
 
 
 
-# Imagenet sample num 768661 + 512506 = 1281167
-
 LABEL_INFO_DICT = {
     "origin": {
         "label_mapping": None,
-        "num_class": 1000,
+        "num_class": 10,
         "label_type": "origin"
     },
 }
 
 
-
-class Imagenet1KClassifyTest():
+class CIFAR10ClassifyTest():
     def __init__(self, encoder_type="resnet"):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Device:", self.device)
 
         if encoder_type == "resnet":
-            self.embed_path = "data/embeddings/imagenet/resnet/train"
-            self.test_embed_path = "data/embeddings/imagenet/resnet/val"
+            self.embed_path = "data/embeddings/cifar10/resnet/cifar10_embeddings.json"
+            self.test_embed_path = "data/embeddings/cifar10/resnet/cifar10_test_embeddings.json"
         elif encoder_type == "vit":
-            self.embed_path = "data/embeddings/imagenet/vit/train"
-            self.test_embed_path = "data/embeddings/imagenet/vit/val"
+            self.embed_path = "data/embeddings/cifar10/vit/cifar10_embeddings.json"
+            self.test_embed_path = "data/embeddings/cifar10/vit/cifar10_test_embeddings.json"
         elif encoder_type == "dino":
-            self.embed_path = "data/embeddings/imagenet/dino/train"
-            self.test_embed_path = "data/embeddings/imagenet/dino/val"
+            self.embed_path = "data/embeddings/cifar10/dino/cifar10_embeddings.json"
+            self.test_embed_path = "data/embeddings/cifar10/dino/cifar10_test_embeddings.json"
         else:
             raise ValueError("Unsupported encoder type. Choose from 'resnet', 'vit', or 'dino'.")
         
-    def load_json_file(self, filepath):
-        with open(filepath, "r") as f:
-            return json.load(f)
-
     def load_embeddings(self, path):
-        # train_batches = [os.path.join(path, fname) for fname in os.listdir(path)][:16]   # NOTE: test
-        train_batches = [os.path.join(path, fname) for fname in os.listdir(path)]
         data = []
-        with ThreadPoolExecutor() as executor:
-            for batch_data in executor.map(self.load_json_file, train_batches):
-                data.extend(batch_data)
-
+        with open(path, "r") as f:
+            for line in f:
+                item = json.loads(line)
+                data.append(item)
+        
         print(f"Loaded Data from {path}") 
         return data
-    
+
     def split_prmary_reserve(self, data, split_ratio=1, seed=42):
         label_to_items = defaultdict(list)
         for item in data:
@@ -90,7 +81,7 @@ class Imagenet1KClassifyTest():
         X = np.array([item['embedding'] for item in data])  # (N, D)
         y = np.array([item['label'] for item in data])      # (N,)
         return X, y
-    
+
     def training_testing_with_given_data(self, dataset, testset, label_type, sample_ratio=1.0):
         if label_type not in LABEL_INFO_DICT:
             raise ValueError(f"Unsupported label type: {label_type}. Available types: {list(LABEL_INFO_DICT.keys())}")
@@ -113,9 +104,8 @@ class Imagenet1KClassifyTest():
         # NOTE: testing_acc, logits_cpu, preds_cpu, labels_cpu = float, (n, k) (n,) (n,)
 
         return num_samples, num_class, testing_acc, train_logits, train_preds, train_labels
-    
 
-    def foundation_size_estimate(self, calculation, label_type, ratios, train_set, test_set, write_hs=False):
+    def foundation_size_estimate(self, sample_num, calculation, label_type, ratios, train_set, test_set, write_hs=False):
         scar_indexes_with_ratio = {}
         for ratio in ratios:  
             indexes = []
@@ -144,7 +134,7 @@ class Imagenet1KClassifyTest():
             indexes = [[scar_indexes_with_ratio[key][task][index] for key in ratios] 
                     for index in ["scale", 'coverage', 'authenticity', 'richness']]
 
-            task_h, task_fd_size = calculation.predict_foudation_step(num_samples, num_class, ratios, indexes)
+            task_h, task_fd_size = calculation.predict_foudation_step(sample_num, num_class, ratios, indexes)
             task_res[task] = (task_h, task_fd_size)
 
         step_hs = [v[0] for v in task_res.values()]                         # 所有 step function 所估计的目标建设空间大小
@@ -155,25 +145,25 @@ class Imagenet1KClassifyTest():
         foundation_size = calculation.predict_foundation_total(step_hs)
 
         if write_hs:
-                with open("src/scar/hs_list.json", "w") as f:
-                    json.dump(step_hs, f)
+            with open("src/scar/hs_list.json", "w") as f:
+                json.dump(step_hs, f)
 
         return foundation_size, scar_indexes_with_ratio, task_res
-    
-    
+
+
 
 def main(encoder_type, label_type):
     calculation = SCARcalculation()
-    classifier = Imagenet1KClassifyTest(encoder_type)
+    classifier = CIFAR10ClassifyTest(encoder_type)
     ratios = [1, 2, 5, 10, 15, 20, 30]
 
-    # =========================== 1. Total Set Test ===========================
+        # =========================== 1. Total Set Test ===========================
     total_set = classifier.load_embeddings(classifier.embed_path)
     test_set = classifier.load_embeddings(classifier.test_embed_path)
 
     total_test_results = classifier.training_testing_with_given_data(total_set, test_set, label_type=label_type, sample_ratio=1)  
-    _, _, total_test_acc, _, _, _ = total_test_results
-    total_foundation_size, _, _ = classifier.foundation_size_estimate(calculation, label_type, ratios, total_set, test_set)
+    total_sample_num, num_class, total_test_acc, _, _, _ = total_test_results
+    total_foundation_size, total_scar_indexes, _ = classifier.foundation_size_estimate(total_sample_num, calculation, label_type, ratios, total_set, test_set)
 
     # =========================== 2. Primary Set Test ===========================
     primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=0.6)
@@ -181,8 +171,8 @@ def main(encoder_type, label_type):
     print(f"Primary Set Size: {data_size}, Reserve Set Size: {rdata_size}")
 
     primary_test_results = classifier.training_testing_with_given_data(primary_set, test_set, label_type=label_type, sample_ratio=1)  
-    _, _, primary_test_acc, _, _, _ = primary_test_results
-    primary_foundation_size, scar_indexes_with_ratio, task_res = classifier.foundation_size_estimate(calculation, label_type, ratios, primary_set, test_set, write_hs=True)
+    primary_sample_num, _, primary_test_acc, _, _, _ = primary_test_results
+    primary_foundation_size, scar_indexes_with_ratio, task_res = classifier.foundation_size_estimate(primary_sample_num, calculation, label_type, ratios, primary_set, test_set, write_hs=True)
 
     # =========================== 3. Fill data set ===========================
     fill_size = max(0, primary_foundation_size - data_size)                     # keep positive
@@ -218,7 +208,7 @@ def main(encoder_type, label_type):
     result_save_path = "experiments/results/imagenet_experiment_results.txt"
     with open(result_save_path, 'a') as f:
         f.write("=" * 70 + "\n")
-        f.write(f"\n\n  ImageNet1k - Encoder: {encoder_type}; Label Type: {label_type}\n")
+        f.write(f"\n\n  CIFAR10 - Encoder: {encoder_type}; Label Type: {label_type}\n")
         f.write("=" * 70 + "\n")
         f.write(f"  Total data size {data_size+rdata_size}; Primary datasize: {data_size}; Extend datasize: {len(extend_set)}.\n")
         f.write("=" * 70 + "\n")
@@ -228,6 +218,8 @@ def main(encoder_type, label_type):
         f.write(f"  1. Total Data Test Acc over {ratios} runs: {total_test_acc:.4f}\n")
         f.write(f"  2. Primary Data Test Acc over {ratios} runs: {primary_test_acc:.4f}\n")
         f.write(f"  3. Extend Data Test Acc over {ratios} runs: {extend_testing_acc:.4f}\n")
+        f.write("=" * 70 + "\n")
+        f.write(f"  Total SCAR indexes: {total_scar_indexes}\n")
         f.write("=" * 70 + "\n")
 
 
@@ -240,4 +232,4 @@ if __name__ == "__main__":
     for encoder_type in ['resnet', 'vit', 'dino']:
         main(encoder_type, label_type)
 
-    # python3 experiments/imagenet1k_classify.py
+    # python3 experiments/cifar10_classify.py

@@ -1,3 +1,6 @@
+import copy
+from tqdm import tqdm
+from sklearn.model_selection import KFold
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
@@ -13,6 +16,10 @@ class LinearClassifier(torch.nn.Module):
 
 
 
+
+
+
+
 def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, patience=5, max_epochs=100):
     train_dataset = TensorDataset(X_train, y_train)
     train_loader = DataLoader(train_dataset, batch_size=500, shuffle=True)
@@ -25,9 +32,12 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
     best_model_state = None
     epochs_no_improve = 0
 
-    for epoch in range(max_epochs):
+    for _ in tqdm(range(max_epochs), ascii=True):
         model.train()
         total_loss = 0.0
+        correct = 0
+        total = 0
+
         for xb, yb in train_loader:
             xb, yb = xb.to(device), yb.to(device)
             optimizer.zero_grad()
@@ -37,24 +47,20 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
             optimizer.step()
             total_loss += loss.item()
 
-        # -------- Validation --------
-        model.eval()
-        with torch.no_grad():
-            X_val_device = X_val.to(device)
-            y_val_device = y_val.to(device)
-            logits = model(X_val_device)
-            preds = torch.argmax(logits, dim=1)
-            acc = (preds == y_val_device).float().mean().item()
+            preds = torch.argmax(out, dim=1)
+            correct += (preds == yb).sum().item()
+            total += yb.size(0)
 
-        # -------- Early Stopping Check --------
-        if acc > best_acc:
-            best_acc = acc
+        train_acc = correct / total
+
+        # -------- Early Stopping Check based on TRAIN acc --------
+        if train_acc > best_acc:
+            best_acc = train_acc
             best_model_state = model.state_dict()
             epochs_no_improve = 0
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= patience:
-                # print(f"Early stopping at epoch {epoch+1} (best val acc = {best_acc:.4f})")
                 break
 
     # -------- Load best model --------
@@ -63,52 +69,130 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
 
     model.eval()
     with torch.no_grad():
+        # -------- 1. Collect training set outputs --------
+        train_logits_list = []
+        train_preds_list = []
+        train_labels_list = []
+
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            out = model(xb)
+            preds = torch.argmax(out, dim=1)
+
+            train_logits_list.append(out.cpu())
+            train_preds_list.append(preds.cpu())
+            train_labels_list.append(yb.cpu())
+
+        train_logits = torch.cat(train_logits_list, dim=0).numpy()
+        train_preds = torch.cat(train_preds_list, dim=0).numpy()
+        train_labels = torch.cat(train_labels_list, dim=0).numpy()
+
+        # -------- 2. Evaluate on validation set --------
         X_val_device = X_val.to(device)
         y_val_device = y_val.to(device)
-        logits = model(X_val_device)
-        preds = torch.argmax(logits, dim=1)
-        acc = (preds == y_val_device).float().mean().item()
+        logits_val = model(X_val_device)
+        preds_val = torch.argmax(logits_val, dim=1)
+        acc_val = (preds_val == y_val_device).float().mean().item()
 
-    logits_cpu = logits.cpu().numpy()
-    preds_cpu = preds.cpu().tolist()
-    labels_cpu = y_val_device.cpu().tolist()
-
-    return acc, logits_cpu, preds_cpu, labels_cpu, model
+    return acc_val, train_logits, train_preds, train_labels
 
 
 
-# def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10):
-#     train_dataset = TensorDataset(X_train, y_train)
-#     train_loader = DataLoader(train_dataset, batch_size=500, shuffle=True)
 
-#     model = LinearClassifier(X_train.shape[1], num_class).to(device)
-#     criterion = nn.CrossEntropyLoss()
-#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-#     # -------- Training --------
-#     for _ in range(100):
-#         model.train()
-#         total_loss = 0.0
-#         for xb, yb in train_loader:
-#             xb, yb = xb.to(device), yb.to(device)
-#             optimizer.zero_grad()
-#             out = model(xb)
-#             loss = criterion(out, yb)
-#             loss.backward()
-#             optimizer.step()
-#             total_loss += loss.item()
 
-#     # -------- Validation --------
-#     model.eval()
-#     with torch.no_grad():
-#         X_val = X_val.to(device)
-#         y_val = y_val.to(device)
-#         logits = model(X_val)
-#         preds = torch.argmax(logits, dim=1)
-#         acc = (preds == y_val).float().mean().item()
 
-#     logits_cpu = logits.cpu().numpy()  # [B, D]
-#     preds_cpu = preds.cpu().tolist()    # [B]
-#     labels_cpu = y_val.cpu().tolist()   # [B]
-    
-#     return acc, logits_cpu, preds_cpu, labels_cpu
+def kfold_train_test(device, X_train, y_train, X_test, y_test, num_class=10, patience=5, max_epochs=100, k_folds=5):
+    kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+    saved_state_dicts = []
+
+    for _, (train_idx, val_idx) in enumerate(kf.split(X_train)):
+        X_train, y_train = X_train[train_idx], y_train[train_idx]
+        X_val, y_val = X_train[val_idx], y_train[val_idx]
+
+        train_dataset = TensorDataset(X_train, y_train)
+        train_loader = DataLoader(train_dataset, batch_size=1000, shuffle=True)
+
+        valid_dataset = TensorDataset(X_val, y_val)
+        valid_loader = DataLoader(valid_dataset, batch_size=1000, shuffle=True)
+
+        model = LinearClassifier(X_train.shape[1], num_class).to(device)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+        best_acc = 0.0
+        best_model_state = None
+        epochs_no_improve = 0
+
+        for _ in range(max_epochs):
+            model.train()
+            for xb, yb in train_loader:
+                xb, yb = xb.to(device), yb.to(device)
+                optimizer.zero_grad()
+                out = model(xb)
+                loss = criterion(out, yb)
+                loss.backward()
+                optimizer.step()
+
+            # Early stopping based on train acc on this fold
+            model.eval()
+            correct = 0
+            total = 0
+            with torch.no_grad():
+                for xb, yb in valid_loader:
+                    xb, yb = xb.to(device), yb.to(device)
+                    preds = torch.argmax(model(xb), dim=1)
+                    correct += (preds == yb).sum().item()
+                    total += yb.size(0)
+            train_acc = correct / total
+
+            if train_acc > best_acc:
+                best_acc = train_acc
+                best_model_state = copy.deepcopy(model.state_dict())
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve >= patience:
+                    break
+
+        saved_state_dicts.append(best_model_state)
+
+    # Step 2: average models
+    avg_state_dict = copy.deepcopy(saved_state_dicts[0])
+    for key in avg_state_dict.keys():
+        for i in range(1, len(saved_state_dicts)):
+            avg_state_dict[key] += saved_state_dicts[i][key]
+        avg_state_dict[key] /= len(saved_state_dicts)
+
+    # Step 3: evaluate on the whole training set using avg model
+    final_model = LinearClassifier(X_train.shape[1], num_class).to(device)
+    final_model.load_state_dict(avg_state_dict)
+    final_model.eval()
+
+    with torch.no_grad():
+        # -------- 1. Collect training set outputs --------
+        train_logits_list = []
+        train_preds_list = []
+        train_labels_list = []
+
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            out = final_model(xb)
+            preds = torch.argmax(out, dim=1)
+
+            train_logits_list.append(out.cpu())
+            train_preds_list.append(preds.cpu())
+            train_labels_list.append(yb.cpu())
+
+        train_logits = torch.cat(train_logits_list, dim=0).numpy()
+        train_preds = torch.cat(train_preds_list, dim=0).numpy()
+        train_labels = torch.cat(train_labels_list, dim=0).numpy()
+
+        # -------- 2. Evaluate on validation set --------
+        X_test_device = X_test.to(device)
+        y_test_device = y_test.to(device)
+        logits_val = final_model(X_test_device)
+        preds_val = torch.argmax(logits_val, dim=1)
+        acc_val = (preds_val == y_test_device).float().mean().item()
+
+    return acc_val, train_logits, train_preds, train_labels

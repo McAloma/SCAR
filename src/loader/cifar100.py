@@ -6,6 +6,8 @@ from tqdm import tqdm
 
 from src.encoder.encoders import ResNet_Encoder, ViT_Encoder, DINO_Encoder
 
+
+
 class CIFAR100_Dataloader():
     def __init__(self, encoder_type="resnet"):
         if encoder_type == "resnet":

@@ -1,4 +1,5 @@
-import os, logging, warnings, torch
+import os, logging, warnings, torch, gc, time
+import numpy as np
 from transformers import BertTokenizer, BertModel
 from transformers import RobertaTokenizer, RobertaModel
 from transformers import GPT2Tokenizer, GPT2Model
@@ -68,7 +69,7 @@ class RoBERTa_Encoder:
         else:
             return last_hidden.squeeze(0).cpu().numpy()  # 所有 token 的向量
 
-    def encode_batch(self, texts: list[str]) -> torch.Tensor:
+    def encode_batch(self, texts):
         inputs = self.tokenizer(texts, return_tensors='pt', truncation=True, padding=True)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
@@ -105,7 +106,7 @@ class GPT2_Encoder:
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
             outputs = self.model(**inputs)
-            return outputs.last_hidden_state[:, -1, :].cpu().numpy()  # 每个句子的最后一个 token 向量
+        return outputs.last_hidden_state[:, -1, :].cpu().numpy()  # 每个句子的最后一个 token 向量
 
 
 if __name__ == "__main__":

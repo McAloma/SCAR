@@ -283,7 +283,7 @@ class Wikipedia_Dataloader():
         self.save_to_json(dict(label_counter), label_stat_path)
         print(f"[Info] Label distribution saved to {label_stat_path}")
 
-    def process_and_save_wikipedia(self, data_dir, batch_size=2048):
+    def process_and_save_wikipedia(self, data_dir, batch_size=128):
         file_paths = self.get_all_wiki_files(data_dir)
         print(f"Found {len(file_paths)} wiki files.")
 
@@ -294,9 +294,11 @@ class Wikipedia_Dataloader():
 
 if __name__ == "__main__":
     data_path = "./data/wikipedia/extracted_wiki"
-    # encoder = "bert"
+    encoder = "gpt2"
+    dataloader = Wikipedia_Dataloader(encoder_type=encoder)
+    dataloader.process_and_save_wikipedia(data_path)
 
-    for encoder in ["bert", "roberta", "gpt2"]:
-        dataloader = Wikipedia_Dataloader(encoder_type=encoder)
-        dataloader.process_and_save_wikipedia(data_path)
+    # for encoder in ["bert", "roberta", "gpt2"]:
+    #     dataloader = Wikipedia_Dataloader(encoder_type=encoder)
+    #     dataloader.process_and_save_wikipedia(data_path)
     

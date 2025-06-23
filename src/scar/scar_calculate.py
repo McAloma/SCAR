@@ -3,13 +3,31 @@ sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
 
 from scipy.stats import norm
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, brentq
+from itertools import combinations
+from scipy.special import logsumexp
 from scipy.spatial.distance import jensenshannon
 
 
 class SCARcalculation():
     def __init__(self, ):
         pass
+
+    def calculation(self, results_list, num_samples, ratio):
+        "基于测试结果计算每个 step function 单独的 SCAR 指标。"
+        task_names = list(results_list.keys())
+        metrics_per_task = {}
+        for task in task_names:             
+            # —————————————— 单个任务下的不同信号函数 ————————————————
+            train_logits, train_preds, train_labels = results_list[task]
+            num_classes = train_logits.shape[1]
+
+            output_binary_class = self.format_as_binary_per_class(train_logits, train_preds, train_labels, num_classes)
+            hs_scar = self.calculate_scar(output_binary_class, num_samples, ratio)
+
+            metrics_per_task[task] = hs_scar
+
+        return metrics_per_task
 
     def estimate_jsd_from_positive_samples(self, samples, bins=100):
         samples = np.asarray(samples)
@@ -35,10 +53,6 @@ class SCARcalculation():
         return jsd
 
     def format_as_binary_per_class(self, logits_cpu, preds_cpu, labels_cpu, num_classes):
-        logits_cpu = np.array(logits_cpu)
-        preds_cpu = np.array(preds_cpu)
-        labels_cpu = np.array(labels_cpu)
-
         output_per_class = {}
 
         for c in range(num_classes):
@@ -47,25 +61,18 @@ class SCARcalculation():
             binary_logits = np.zeros((len(class_logits_1d), 2))
             class_preds = np.zeros(len(class_logits_1d))
 
-            for i, (logit_val, label_val) in enumerate(zip(class_logits_1d, labels_cpu == c)):
-                pred_class = np.argmax(logits_cpu[i])
-
-                if not label_val:  # 负类
-                    binary_logits[i, 0] = -logit_val
+            for i, (logit, pred, label) in enumerate(zip(class_logits_1d, preds_cpu, labels_cpu == c)):
+                if not label:  # 负类
+                    binary_logits[i, 0] = -logit
                     binary_logits[i, 1] = 0
-                    class_preds[i] = (pred_class != c).astype(int)
+                    class_preds[i] = (pred != c).astype(int)
                 else:  # 正类
                     binary_logits[i, 0] = 0
-                    binary_logits[i, 1] = logit_val
-                    class_preds[i] = (pred_class == c).astype(int)
-
+                    binary_logits[i, 1] = logit
+                    class_preds[i] = (pred == c).astype(int)
             class_labels = (labels_cpu == c).astype(int)
 
-            output_per_class[c] = [
-                binary_logits,
-                class_preds,
-                class_labels
-            ]
+            output_per_class[c] = [binary_logits, class_preds, class_labels]
 
         return output_per_class
     
@@ -123,58 +130,6 @@ class SCARcalculation():
             }
 
         return metrics_per_task
-
-        # all_scales = []
-        # all_coverages = []
-        # all_authenticities = []
-        # all_richnesses = []
-
-        # print("Per-task SCAR components:")
-        # for task, metrics in metrics_per_task.items():
-        #     scale = metrics["scale"]
-        #     coverage = metrics["coverage"]
-        #     authenticity = metrics["authenticity"]
-        #     richness = metrics["richness"]
-
-        #     print(f"{task:<10} Scale: {scale:.4f}, Coverage: {coverage:.4f}, Authenticity: {authenticity:.4f}, Richness: {richness:.4f}")
-
-        #     all_scales.append(scale)
-        #     all_coverages.append(coverage)
-        #     all_authenticities.append(authenticity)
-        #     all_richnesses.append(richness)
-
-        # scar_index = {
-        #     "scale": np.mean(all_scales),
-        #     "coverage": np.mean(all_coverages),
-        #     "authenticity": np.mean(all_authenticities),
-        #     "richness": np.mean(all_richnesses)
-        # }
-
-        # return scar_index
-
-
-    def calculation(self, results_list, num_samples, ratio):
-        task_names = list(results_list.keys())
-
-        # ———————————————————— 不同的任务 ——————————————————————
-        task_scar = self.calculate_scar(results_list, num_samples, ratio)
-
-        metrics_per_task = {}
-        for task in task_names:             
-            # —————————————— 一个任务下的不同信号函数 ————————————————
-            logits, preds_cpu, labels = results_list[task]
-
-            num_classes = logits[0].shape[0]
-            output_binary_class = self.format_as_binary_per_class(logits, preds_cpu, labels, num_classes)
-
-            hs_scar = self.calculate_scar(output_binary_class, num_samples, ratio)
-
-            metrics_per_task[task] = {
-                "task_scar" : task_scar[task],
-                "hs_scar" : hs_scar
-            }
-
-        return metrics_per_task
     
     def count_h(self, s, c, a, r):
         r, delta, err_gen, err_emp = s, 1-c, 1-a, 1-r
@@ -212,165 +167,116 @@ class SCARcalculation():
 
         return best_a, best_lambda
 
-    def predict_foudation_step(self, ratios, indexes):
+    def predict_foudation_step(self, sample_num, class_num, ratios, indexes):
         scals, coves, auths, richs = indexes
+
+        xs = [1/item for item in ratios]
         hs = [self.count_h(s, c, a, r) for s, c, a, r in zip(scals, coves, auths, richs)]
 
-        # print(ratios)
-        # print(scals)
-        # print(coves)
-        # print(auths)
-        # print(richs)
-        # print(hs)
-
-        h, lambd = self.fit_lower_exp_function(ratios, hs)  
+        h, lambd = self.fit_lower_exp_function(xs, hs)  
 
         delta = 0.01
-        epsilon = 0.01      # general - empirical
+        # epsilon = 0.001      # general - empirical
+        epsilon = 1 - (0.99) ** (1/class_num)
 
         foundation_size = np.log(h/(delta)) / (2 * (epsilon) ** 2)
 
         return h, foundation_size
-    
-    # def predict_foundation_total(self, ratios, step_hs):
-    #     def equation(t, sums, log_prods_list, k, delta_E):
-    #         "t = 2 * n * epsilon ** 2"
-    #         sum_item = sums * t
-    #         log_prod_item = 0
-    #         for log_prod in log_prods_list:
-    #             log_prod_item = log_prod - t
 
-    #         return sum_item - (k - 1) * np.exp(log_prod_item) - delta_E
+    def predict_foundation_total(self, H_list, delta_E=0.01, epsilon=0.01, verbose=False):
+        H_list = np.array(H_list)
+        k = len(H_list)
+        
+        if np.any(H_list <= 0):
+            raise ValueError("All h_j must be > 0")
 
-    #     sums = sum(step_hs)
-    #     log_prods_list = np.log(step_hs)  # 替代乘法
-    #     k = len(step_hs)
+        logsumh = np.log(np.sum(H_list))              # log(∑h_j)
+        logprodh = np.sum(np.log(H_list))             # log(∏h_j)
+        log_k_minus_1 = np.log(k - 1)
 
-    #     delta_E = 0.01
+        def f(x):  # x = n * ε²
+            logterm1 = -2 * x + logsumh
+            logterm2 = log_k_minus_1 - 2 * k * x + logprodh
+            M = max(logterm1, logterm2)                 # log-sum-exp trick 
 
-    #     t_initial_guess = 0.001
-    #     t_solution = fsolve(equation, t_initial_guess, args=(sums, log_prods_list, k, delta_E))[0]
+            # log-domain subtraction
+            diff = np.exp(logterm1 - M) - np.exp(logterm2 - M)
+            return np.exp(M) * diff - delta_E
 
-    #     epsilon = 0.0001
-    #     foundation_size = t_solution / (2 * epsilon ** 2)
-
-    #     return foundation_size
-
-    
-    # def predict_foundation_total(self, ratios, step_hs):
-    #     def equation(nepsilon2, h_list, k, delta_E):
-    #         t = np.exp(-nepsilon2)  # t = exp(-2nε²)
-    #         sum_h = np.sum(h_list)
-    #         log_prod_h = np.sum(np.log(h_list))
-    #         term1 = t * sum_h
-    #         term2 = (k - 1) * np.exp(k * np.log(t) + log_prod_h)
-    #         return term1 - term2 - delta_E
-
-    #     k = len(step_hs)
-    #     delta_E = 1e-4
-    #     epsilon = 0.01
-    #     nepsilon2_initial_guess = 1.0
-
-    #     # nepsilon2 = 2nε²
-    #     nepsilon2_solution = fsolve(equation, nepsilon2_initial_guess, args=(step_hs, k, delta_E))[0]
-
-    #     foundation_size = nepsilon2_solution / (2 * epsilon ** 2)  # => n
-
-    #     return foundation_size     
-
-    def predict_foundation_total(self, ratios, step_hs):
-        def equation(nepsilon2, h_list, k, delta_E):
-            t = np.exp(-nepsilon2)  # t = exp(-2nε²)
-            sum_h = np.sum(h_list)
-            prod_h = np.prod(h_list)
-            term1 = t * sum_h
-            term2 = (k - 1) * (t ** k) * prod_h
-            return term1 - term2 - delta_E
-
-        k = len(step_hs)
-        delta_E = 1e-4
-        epsilon = 0.01
+        # Initial interval for x = n * ε²
+        x_min = np.log(np.max(H_list)) / 2 + 1e-3  # ensure t * h_j < 1
+        x_max = x_min + 30
 
         try:
-            from scipy.optimize import brentq
-            nepsilon2_solution = brentq(
-                lambda n: equation(n, step_hs, k, delta_E), 1e-6, 20
-            )
+            x_solution = brentq(f, x_min, x_max)
+            n = x_solution / epsilon**2
+            if verbose:
+                print(f"Solution x = {x_solution}, n = {n}")
+            return n
         except Exception as e:
-            print("Root finding failed:", e)
+            if verbose:
+                print("❌ Solve failed:", e)
             return None
+        
+    def predict_foundation_total_general(self, H_list, delta_E=0.01, epsilon=0.001, verbose=False, max_order=None):
+        H_list = np.array(H_list)
+        k = len(H_list)
 
-        foundation_size = nepsilon2_solution / (2 * epsilon ** 2)  # => n
-        return foundation_size
+        if np.any(H_list <= 0):
+            raise ValueError("All h_j must be > 0")
+
+        if max_order is None:
+            max_order = k  # default: use full Bonferroni expansion
+
+        # 预计算 log(h_j)
+        log_h_list = np.log(H_list)
+
+        # 预计算每个阶数 r 的 log S_r
+        log_S_terms = []
+        for r in range(1, max_order + 1):
+            log_products = []
+            for idxs in combinations(range(k), r):
+                log_prod = np.sum(log_h_list[list(idxs)])  # log(∏ h_j)
+                log_products.append(log_prod)
+            log_S_r = logsumexp(log_products) if log_products else -np.inf
+            log_S_terms.append(log_S_r)
+
+        signs = np.array([(-1)**(r+1) for r in range(1, max_order + 1)])  # (-1)^{r+1}
+
+        def f(x):  # x = n * ε²
+            log_terms = np.array([-2 * (r + 1) * x + log_S_terms[r] for r in range(max_order)])
+            max_log_term = np.max(log_terms)
+            signed_sum = np.sum(signs * np.exp(log_terms - max_log_term))
+            return np.exp(max_log_term) * signed_sum - delta_E
+
+        x_min = np.log(np.max(H_list)) / 2 + 1e-3
+        x_max = x_min + 30
+
+        try:
+            x_solution = brentq(f, x_min, x_max)
+            n = x_solution / (epsilon)**2
+            if verbose:
+                print(f"Solution x = {x_solution}, n = {n}")
+            return n
+        except Exception as e:
+            if verbose:
+                print("❌ Solve failed:", e)
+            return None
     
 
     
 
 if __name__ == "__main__":
-    example = {
-        "what": [
-            [  # logits（每个为 np.array）
-                np.array([1.2, 0.3], dtype=np.float32),
-                np.array([0.1, 2.4], dtype=np.float32),
-                np.array([2.1, -0.5], dtype=np.float32),
-                np.array([-1.0, 0.8], dtype=np.float32)
-            ],
-            [  # 是否分类正确
-                True,
-                True,
-                False,
-                True
-            ],
-            [  # 标签
-                0,
-                1,
-                1,
-                1
-            ]
-        ],
-        "where": [
-            [
-                np.array([-0.6, 1.0, 0.2], dtype=np.float32),
-                np.array([0.4, -0.8, 0.9], dtype=np.float32),
-                np.array([1.5, 0.3, -0.7], dtype=np.float32),
-                np.array([0.2, -1.1, 1.3], dtype=np.float32)
-            ],
-            [
-                False,
-                True,
-                True,
-                False
-            ],
-            [
-                2,
-                0,
-                1,
-                2
-            ]
-        ]
-    }
-
-    def format_nested_dict(d, indent=0):
-        for key, value in d.items():
-            prefix = "  " * indent
-            if isinstance(value, dict):
-                print(f"{prefix}{key}:")
-                format_nested_dict(value, indent + 1)
-            else:
-                if isinstance(value, float):
-                    value = f"{value:.4f}"
-                print(f"{prefix}  {key}: {value}")
-
     calculation = SCARcalculation()
-    metrics_per_task = calculation.calculation(example, 4, 2)
-    print(metrics_per_task)
-    format_nested_dict(metrics_per_task)
+    with open("src/scar/hs_list1.json", "r") as f:
+        hs_list = json.load(f)
 
-    # result_list = [{'what': {'task_scar': {'scale': 0.5, 'coverage': 0.9987034797668457, 'authenticity': 0.9898, 'richness': 0.99954}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.8058268323019196, 'authenticity': 0.0102, 'richness': 1.0}, 1: {'scale': 0.5, 'coverage': 0.9986024938059566, 'authenticity': 0.9898, 'richness': 1.0}}}, 'where': {'task_scar': {'scale': 0.5, 'coverage': 0.985785186290741, 'authenticity': 0.97684, 'richness': 0.99918}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.9968088205924266, 'authenticity': 0.02316, 'richness': 0.51158}, 1: {'scale': 0.5, 'coverage': 0.9984319175618015, 'authenticity': 0.97684, 'richness': 0.98842}, 2: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.5}}}, 'how': {'task_scar': {'scale': 0.5, 'coverage': 0.9851251840591431, 'authenticity': 0.93832, 'richness': 0.999}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.9946153896672563, 'authenticity': 0.06168, 'richness': 0.3744533333333333}, 1: {'scale': 0.5, 'coverage': 0.9982770853667962, 'authenticity': 0.93832, 'richness': 0.9588799999999998}, 2: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.33333333333333326}, 3: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.33333333333333326}}}}, {'what': {'task_scar': {'scale': 0.5, 'coverage': 0.9991136789321899, 'authenticity': 0.9896, 'richness': 0.99936}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.8697561996712722, 'authenticity': 0.0104, 'richness': 1.0}, 1: {'scale': 0.5, 'coverage': 0.997711581412311, 'authenticity': 0.9896, 'richness': 1.0}}}, 'where': {'task_scar': {'scale': 0.5, 'coverage': 0.9933228492736816, 'authenticity': 0.97672, 'richness': 0.9987}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.998922189218729, 'authenticity': 0.02328, 'richness': 0.51164}, 1: {'scale': 0.5, 'coverage': 0.9951632929203973, 'authenticity': 0.97672, 'richness': 0.98836}, 2: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.5}}}, 'how': {'task_scar': {'scale': 0.5, 'coverage': 0.9815216064453125, 'authenticity': 0.9282, 'richness': 0.99834}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.9972034633714831, 'authenticity': 0.0718, 'richness': 0.38119999999999993}, 1: {'scale': 0.5, 'coverage': 0.9976408215988579, 'authenticity': 0.9282, 'richness': 0.9521333333333333}, 2: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.33333333333333326}, 3: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.33333333333333326}}}}]
-    # results = {'what': {'task_scar': {'scale': 0.5, 'coverage': 0.9989085793495178, 'authenticity': 0.9897, 'richness': 0.99945}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.8377915159865958, 'authenticity': 0.0103, 'richness': 1.0}, 1: {'scale': 0.5, 'coverage': 0.9981570376091338, 'authenticity': 0.9897, 'richness': 1.0}}}, 'where': {'task_scar': {'scale': 0.5, 'coverage': 0.9895540177822113, 'authenticity': 0.97678, 'richness': 0.9989399999999999}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.9978655049055778, 'authenticity': 0.023219999999999998, 'richness': 0.51161}, 1: {'scale': 0.5, 'coverage': 0.9967976052410994, 'authenticity': 0.97678, 'richness': 0.98839}, 2: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.5}}}, 'how': {'task_scar': {'scale': 0.5, 'coverage': 0.9833233952522278, 'authenticity': 0.93326, 'richness': 0.99867}, 'hs_scar': {0: {'scale': 0.5, 'coverage': 0.9959094265193698, 'authenticity': 0.06674, 'richness': 0.37782666666666664}, 1: {'scale': 0.5, 'coverage': 0.997958953482827, 'authenticity': 0.93326, 'richness': 0.9555066666666665}, 2: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.33333333333333326}, 3: {'scale': 0.5, 'coverage': 0.0, 'authenticity': 0.0, 'richness': 0.33333333333333326}}}}
-
-    # for res in result_list:
-    #     format_nested_dict(res)
+    result = calculation.predict_foundation_total(hs_list, epsilon=0.01)
+    print(result)
     
-    # print("Final")
-    # format_nested_dict(results)
+    result = calculation.predict_foundation_total_general(hs_list, epsilon=0.01)
+    print(result)
+
+
+# (1 - (0.999) ** 10) ** (1 / 10)
+# 1- 0.99 ** (1 / 10)
