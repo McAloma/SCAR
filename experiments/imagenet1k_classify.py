@@ -1,4 +1,4 @@
-import sys, os, json, torch, copy, random
+import sys, os, json, torch, copy, random, time, argparse
 sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
 from collections import defaultdict, Counter
@@ -38,12 +38,14 @@ class Imagenet1KClassifyTest():
         else:
             raise ValueError("Unsupported encoder type. Choose from 'resnet', 'vit', or 'dino'.")
         
+        self.calculation = SCARcalculation()
+        
     def load_json_file(self, filepath):
         with open(filepath, "r") as f:
             return json.load(f)
 
     def load_embeddings(self, path):
-        # train_batches = [os.path.join(path, fname) for fname in os.listdir(path)][:16]   # NOTE: test
+        # train_batches = [os.path.join(path, fname) for fname in os.listdir(path)][:32]   # NOTE: test
         train_batches = [os.path.join(path, fname) for fname in os.listdir(path)]
         data = []
         with ThreadPoolExecutor() as executor:
@@ -97,38 +99,40 @@ class Imagenet1KClassifyTest():
         label_info = LABEL_INFO_DICT[label_type]
         num_class = label_info["num_class"]
         
-        # -------------------- Load Sample Data --------------------
         X, y = self.downsample_embeddings(dataset, sample_ratio)
         X = torch.tensor(X, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.long)
         num_samples = X.shape[0]
-
-        # -------------------- Load Test Data --------------------
+        
         X_test, y_test = self.downsample_embeddings(testset)
         X_test = torch.tensor(X_test, dtype=torch.float32)
         y_test = torch.tensor(y_test, dtype=torch.long)
-
-        # -------------------- EMR process with linear model --------------------
+        
         testing_acc, train_logits, train_preds, train_labels = single_train_test(self.device, X, y, X_test, y_test, num_class)
         # NOTE: testing_acc, logits_cpu, preds_cpu, labels_cpu = float, (n, k) (n,) (n,)
 
         return num_samples, num_class, testing_acc, train_logits, train_preds, train_labels
-    
 
-    def foundation_size_estimate(self, calculation, label_type, ratios, train_set, test_set, write_hs=False):
+    def foundation_size_estimate(self, sample_num, encoder_type, label_type, ratios, train_set, test_set, write_hs=False):
+        start_total = time.time()  # 记录整个函数耗时
         scar_indexes_with_ratio = {}
-        for ratio in ratios:  
+        primary_train_acc = 0.0
+
+        for ratio in ratios:
+            start_ratio = time.time()  # 每个 ratio 的耗时
             indexes = []
-            for cur in range(ratio): 
-                type_results = {}
+            for cur in range(ratio):
                 print(f"=== Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} in {cur+1}/{ratio} ===")
                 cur_total_results = self.training_testing_with_given_data(train_set, test_set, label_type=label_type, sample_ratio=1/ratio)      
-                num_samples, num_class, _, train_logits, train_preds, train_labels = cur_total_results
 
-                type_results[label_type] = [train_logits, train_preds, train_labels]
-                
-                scar_index = calculation.calculation(type_results, num_samples, ratio)
-                indexes.append(scar_index)     
+                num_samples, num_class, _, train_logits, train_preds, train_labels = cur_total_results
+                type_results = {label_type: [train_logits, train_preds, train_labels]}
+
+                scar_index, train_acc = self.calculation.calculation(type_results, num_samples, ratio)
+
+                if ratio == 1:
+                    primary_train_acc = train_acc
+                indexes.append(scar_index)
 
             scars = defaultdict(dict)
             for task_index in indexes[0][label_type]:
@@ -136,34 +140,41 @@ class Imagenet1KClassifyTest():
                     task_mean_index = np.mean([item[label_type][task_index][key] for item in indexes])
                     scars[task_index][key] = task_mean_index
 
-            scar_indexes_with_ratio[ratio] = scars
-        
-        # —————————————— Foundation data size Estimation ——————————————————
-        task_res = {}
-        for task in scar_indexes_with_ratio[1]:   
-            indexes = [[scar_indexes_with_ratio[key][task][index] for key in ratios] 
-                    for index in ["scale", 'coverage', 'authenticity', 'richness']]
+            scar_indexes_with_ratio[ratio] = dict(scars)
 
-            task_h, task_fd_size = calculation.predict_foudation_step(num_samples, num_class, ratios, indexes)
+        # Step function fitting
+        task_res = {}
+        for task in scar_indexes_with_ratio[1]:
+            indexes = [[scar_indexes_with_ratio[key][task][index] for key in ratios]
+                        for index in ["scale", 'coverage', 'authenticity', 'richness']]
+            task_h, task_fd_size = self.calculation.predict_foudation_step(sample_num, num_class, ratios, indexes)
             task_res[task] = (task_h, task_fd_size)
 
-        step_hs = [v[0] for v in task_res.values()]                         # 所有 step function 所估计的目标建设空间大小
+        step_hs = [v[0] for v in task_res.values()]
+        step_avg_acc = np.mean([scar_indexes_with_ratio[1][task]["authenticity"] for task in scar_indexes_with_ratio[1]])
+        ratio = (1 - primary_train_acc) / (1 - step_avg_acc) if step_avg_acc < 1 else 0
+        ratio = max(ratio, np.e)
 
-        with open("src/scar/hs_list.json", "w") as f:
-            json.dump(step_hs, f)
+        # Final foundation size prediction
+        foundation_size = self.calculation.predict_foundation_total_fast(step_hs, ratio, max_order=3)
 
-        foundation_size = calculation.predict_foundation_total(step_hs)
+        if not foundation_size:
+            foundation_size = sum([v[1] for v in task_res.values()])  # Fallback to sum of step sizes if prediction fails
 
         if write_hs:
-                with open("src/scar/hs_list.json", "w") as f:
-                    json.dump(step_hs, f)
+            with open(f"src/scar/hs_list_imagenet1k_{encoder_type}_{write_hs}.json", "w") as f:
+                json.dump(ratio, f)
+                f.write("\n")
+                json.dump(step_hs, f)
+
+        total_time = time.time() - start_total
+        print(f"=== Total foundation_size_estimate completed in {total_time:.2f} seconds ===")
 
         return foundation_size, scar_indexes_with_ratio, task_res
     
     
 
-def main(encoder_type, label_type):
-    calculation = SCARcalculation()
+def main(encoder_type, label_type, split_ratio=0.6):
     classifier = Imagenet1KClassifyTest(encoder_type)
     ratios = [1, 2, 5, 10, 15, 20, 30]
 
@@ -172,20 +183,21 @@ def main(encoder_type, label_type):
     test_set = classifier.load_embeddings(classifier.test_embed_path)
 
     total_test_results = classifier.training_testing_with_given_data(total_set, test_set, label_type=label_type, sample_ratio=1)  
-    _, _, total_test_acc, _, _, _ = total_test_results
-    total_foundation_size, _, _ = classifier.foundation_size_estimate(calculation, label_type, ratios, total_set, test_set)
+    total_sample_num, _, total_test_acc, _, _, _ = total_test_results
+    total_foundation_size, total_scar_indexes, _ = classifier.foundation_size_estimate(total_sample_num, encoder_type, label_type, ratios, total_set, test_set, write_hs='Total')
 
     # =========================== 2. Primary Set Test ===========================
-    primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=0.6)
+    primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=split_ratio)
     data_size, rdata_size = len(primary_set), sum([len(reserve_set[key]) for key in reserve_set])
     print(f"Primary Set Size: {data_size}, Reserve Set Size: {rdata_size}")
 
     primary_test_results = classifier.training_testing_with_given_data(primary_set, test_set, label_type=label_type, sample_ratio=1)  
-    _, _, primary_test_acc, _, _, _ = primary_test_results
-    primary_foundation_size, scar_indexes_with_ratio, task_res = classifier.foundation_size_estimate(calculation, label_type, ratios, primary_set, test_set, write_hs=True)
+    primary_sample_num, _, primary_test_acc, _, _, _ = primary_test_results
+    primary_foundation_size, scar_indexes_with_ratio, task_res = classifier.foundation_size_estimate(primary_sample_num, encoder_type, label_type, ratios, primary_set, test_set, write_hs='Primary')
 
     # =========================== 3. Fill data set ===========================
-    fill_size = max(0, primary_foundation_size - data_size)                     # keep positive
+    # fill_size = min(data_size + rdata_size, primary_foundation_size - data_size)                     # keep positive
+    fill_size = rdata_size
     subtype_fill_size = defaultdict(int)
     subtype_count = Counter([item['label'] for item in primary_set])
     for tar in scar_indexes_with_ratio[1]:
@@ -214,11 +226,37 @@ def main(encoder_type, label_type):
     extend_test_results = classifier.training_testing_with_given_data(extend_set, test_set, label_type=label_type, sample_ratio=1)     
     _, _, extend_testing_acc, _, _, _  = extend_test_results
 
+    # =========================== 3.1 Random Fill data set ===========================
+    avaliable_reserve_set = []
+    for label in subtype_fill_size:
+        if label in reserve_set:
+            avaliable_reserve_set.extend(reserve_set[label])
+
+    average_extend_set = copy.deepcopy(primary_set)
+    extend_random = random.sample(avaliable_reserve_set, len(extend_set) - len(primary_set))
+    average_extend_set.extend(extend_random)
+
+    print(f"Random Filled Data size is {len(average_extend_set)}")
+    random_extend_test_results = classifier.training_testing_with_given_data(average_extend_set, test_set, label_type=label_type, sample_ratio=1)     
+    _, _, random_extend_testing_acc, _, _, _  = random_extend_test_results
+    
+    # =========================== 3.2 Average Fill data set ===========================
+    average_extend_set = copy.deepcopy(primary_set)
+    add_num = (len(extend_set) - len(primary_set)) / len([label for label in subtype_fill_size if label in reserve_set])
+    for label in subtype_fill_size:
+        if label in reserve_set:
+            add_data = random.sample(reserve_set[label], int(add_num))
+            average_extend_set.extend(add_data)
+            
+    print(f"Average Filled Data size is {len(average_extend_set)}")
+    average_extend_test_results = classifier.training_testing_with_given_data(average_extend_set, test_set, label_type=label_type, sample_ratio=1)     
+    _, _, average_extend_testing_acc, _, _, _  = average_extend_test_results
+
     # =============== 4. SAVE Average Results for this ratio ===============
     result_save_path = "experiments/results/imagenet_experiment_results.txt"
     with open(result_save_path, 'a') as f:
         f.write("=" * 70 + "\n")
-        f.write(f"\n\n  ImageNet1k - Encoder: {encoder_type}; Label Type: {label_type}\n")
+        f.write(f"  ImageNet1000 - Encoder: {encoder_type}; Label Type: {label_type}\n")
         f.write("=" * 70 + "\n")
         f.write(f"  Total data size {data_size+rdata_size}; Primary datasize: {data_size}; Extend datasize: {len(extend_set)}.\n")
         f.write("=" * 70 + "\n")
@@ -229,6 +267,11 @@ def main(encoder_type, label_type):
         f.write(f"  2. Primary Data Test Acc over {ratios} runs: {primary_test_acc:.4f}\n")
         f.write(f"  3. Extend Data Test Acc over {ratios} runs: {extend_testing_acc:.4f}\n")
         f.write("=" * 70 + "\n")
+        f.write(f"  4. Random Extend Data Test Acc over {ratios} runs: {random_extend_testing_acc:.4f}\n")
+        f.write(f"  5. Average Extend Data Test Acc over {ratios} runs: {average_extend_testing_acc:.4f}\n")
+        f.write("=" * 70 + "\n")
+        f.write(f"  Total SCAR indexes: {total_scar_indexes}\n")
+        f.write("=" * 70 + "\n\n")
 
 
 
@@ -236,8 +279,20 @@ def main(encoder_type, label_type):
 
 if __name__ == "__main__":
     # encoder_type = "vit"  # Choose from 'resnet', 'vit', or 'dino'
-    label_type = "origin"  # Define the label types you want to test
-    for encoder_type in ['resnet', 'vit', 'dino']:
-        main(encoder_type, label_type)
+    # label_type = "origin"  # Define the label types you want to test
+    # for i in range(3):
+    #     print(f"Running experiments for label type: {label_type} in range {i}.")
+    #     for encoder_type in ['resnet', 'vit', 'dino']:
+    #         main(encoder_type, label_type)
 
-    # python3 experiments/imagenet1k_classify.py
+    parser = argparse.ArgumentParser(description="Run a single experiment with specific encoder and label type.")
+    parser.add_argument('--encoder_type', type=str, required=True, choices=['resnet', 'vit', 'dino'],
+                        help="Encoder type to use: 'resnet', 'vit', or 'dino'")
+    parser.add_argument('--label_type', type=str, required=True,
+                        help="Label type to use, e.g., 'origin'")
+
+    args = parser.parse_args()
+
+    main(args.encoder_type, args.label_type)
+    
+    # python3 experiments/imagenet1k_classify.py --encoder_type vit --label_type origin

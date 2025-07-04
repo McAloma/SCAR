@@ -34,6 +34,8 @@ class CIFAR10ClassifyTest():
         else:
             raise ValueError("Unsupported encoder type. Choose from 'resnet', 'vit', or 'dino'.")
         
+        self.calculation = SCARcalculation()
+        
     def load_embeddings(self, path):
         data = []
         with open(path, "r") as f:
@@ -105,8 +107,9 @@ class CIFAR10ClassifyTest():
 
         return num_samples, num_class, testing_acc, train_logits, train_preds, train_labels
 
-    def foundation_size_estimate(self, sample_num, calculation, label_type, ratios, train_set, test_set, write_hs=False):
+    def foundation_size_estimate(self, sample_num, encoder_type, label_type, ratios, train_set, test_set, write_hs=False):
         scar_indexes_with_ratio = {}
+        primary_train_acc = 0.0
         for ratio in ratios:  
             indexes = []
             for cur in range(ratio): 
@@ -116,8 +119,9 @@ class CIFAR10ClassifyTest():
                 num_samples, num_class, _, train_logits, train_preds, train_labels = cur_total_results
 
                 type_results[label_type] = [train_logits, train_preds, train_labels]
-                
-                scar_index = calculation.calculation(type_results, num_samples, ratio)
+                scar_index, train_acc = self.calculation.calculation(type_results, num_samples, ratio)
+                if ratio == 1:
+                    primary_train_acc = train_acc
                 indexes.append(scar_index)     
 
             scars = defaultdict(dict)
@@ -126,53 +130,56 @@ class CIFAR10ClassifyTest():
                     task_mean_index = np.mean([item[label_type][task_index][key] for item in indexes])
                     scars[task_index][key] = task_mean_index
 
-            scar_indexes_with_ratio[ratio] = scars
-        
-        # —————————————— Foundation data size Estimation ——————————————————
+            scar_indexes_with_ratio[ratio] = dict(scars)
+
         task_res = {}
         for task in scar_indexes_with_ratio[1]:   
             indexes = [[scar_indexes_with_ratio[key][task][index] for key in ratios] 
                     for index in ["scale", 'coverage', 'authenticity', 'richness']]
 
-            task_h, task_fd_size = calculation.predict_foudation_step(sample_num, num_class, ratios, indexes)
+            task_h, task_fd_size = self.calculation.predict_foudation_step(sample_num, num_class, ratios, indexes)
             task_res[task] = (task_h, task_fd_size)
 
         step_hs = [v[0] for v in task_res.values()]                         # 所有 step function 所估计的目标建设空间大小
 
-        with open("src/scar/hs_list.json", "w") as f:
-            json.dump(step_hs, f)
+        step_avg_acc = np.mean([scar_indexes_with_ratio[1][task]["authenticity"] for task in scar_indexes_with_ratio[1]])
+        ratio = (1 - primary_train_acc) / (1 - step_avg_acc) if step_avg_acc < 1 else np.e          # min value is E
 
-        foundation_size = calculation.predict_foundation_total(step_hs)
+        foundation_size = self.calculation.predict_foundation_total_fast(step_hs, ratio, max_order=3)
+
+        if not foundation_size:
+            foundation_size = sum([v[1] for v in task_res.values()])  # Fallback to sum of step sizes if prediction fails
 
         if write_hs:
-            with open("src/scar/hs_list.json", "w") as f:
+            with open(f"src/scar/hs_list_cifar10_{encoder_type}_{write_hs}.json", "w") as f:
+                json.dump(ratio, f)
+                f.write("\n")
                 json.dump(step_hs, f)
 
         return foundation_size, scar_indexes_with_ratio, task_res
 
 
 
-def main(encoder_type, label_type):
-    calculation = SCARcalculation()
+def main(encoder_type, label_type, split_ratio=0.6):
     classifier = CIFAR10ClassifyTest(encoder_type)
     ratios = [1, 2, 5, 10, 15, 20, 30]
 
-        # =========================== 1. Total Set Test ===========================
+    # =========================== 1. Total Set Test ===========================
     total_set = classifier.load_embeddings(classifier.embed_path)
     test_set = classifier.load_embeddings(classifier.test_embed_path)
 
     total_test_results = classifier.training_testing_with_given_data(total_set, test_set, label_type=label_type, sample_ratio=1)  
-    total_sample_num, num_class, total_test_acc, _, _, _ = total_test_results
-    total_foundation_size, total_scar_indexes, _ = classifier.foundation_size_estimate(total_sample_num, calculation, label_type, ratios, total_set, test_set)
+    total_sample_num, _, total_test_acc, _, _, _ = total_test_results
+    total_foundation_size, total_scar_indexes, _ = classifier.foundation_size_estimate(total_sample_num, encoder_type, label_type, ratios, total_set, test_set, write_hs="total")
 
     # =========================== 2. Primary Set Test ===========================
-    primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=0.6)
+    primary_set, reserve_set = classifier.split_prmary_reserve(total_set, split_ratio=split_ratio)
     data_size, rdata_size = len(primary_set), sum([len(reserve_set[key]) for key in reserve_set])
     print(f"Primary Set Size: {data_size}, Reserve Set Size: {rdata_size}")
 
     primary_test_results = classifier.training_testing_with_given_data(primary_set, test_set, label_type=label_type, sample_ratio=1)  
     primary_sample_num, _, primary_test_acc, _, _, _ = primary_test_results
-    primary_foundation_size, scar_indexes_with_ratio, task_res = classifier.foundation_size_estimate(primary_sample_num, calculation, label_type, ratios, primary_set, test_set, write_hs=True)
+    primary_foundation_size, scar_indexes_with_ratio, task_res = classifier.foundation_size_estimate(primary_sample_num, encoder_type, label_type, ratios, primary_set, test_set, write_hs="primary")
 
     # =========================== 3. Fill data set ===========================
     fill_size = max(0, primary_foundation_size - data_size)                     # keep positive
@@ -204,11 +211,37 @@ def main(encoder_type, label_type):
     extend_test_results = classifier.training_testing_with_given_data(extend_set, test_set, label_type=label_type, sample_ratio=1)     
     _, _, extend_testing_acc, _, _, _  = extend_test_results
 
+    # =========================== 3.1 Random Fill data set ===========================
+    avaliable_reserve_set = []
+    for label in subtype_fill_size:
+        if label in reserve_set:
+            avaliable_reserve_set.extend(reserve_set[label])
+
+    average_extend_set = copy.deepcopy(primary_set)
+    extend_random = random.sample(avaliable_reserve_set, len(extend_set) - len(primary_set))
+    average_extend_set.extend(extend_random)
+
+    print(f"Random Filled Data size is {len(average_extend_set)}")
+    random_extend_test_results = classifier.training_testing_with_given_data(average_extend_set, test_set, label_type=label_type, sample_ratio=1)     
+    _, _, random_extend_testing_acc, _, _, _  = random_extend_test_results
+
+    # =========================== 3.2 Average Fill data set ===========================
+    average_extend_set = copy.deepcopy(primary_set)
+    add_num = (len(extend_set) - len(primary_set)) / len([label for label in subtype_fill_size if label in reserve_set])
+    for label in subtype_fill_size:
+        if label in reserve_set:
+            add_data = random.sample(reserve_set[label], int(add_num))
+            average_extend_set.extend(add_data)
+            
+    print(f"Average Filled Data size is {len(average_extend_set)}")
+    average_extend_test_results = classifier.training_testing_with_given_data(average_extend_set, test_set, label_type=label_type, sample_ratio=1)     
+    _, _, average_extend_testing_acc, _, _, _  = average_extend_test_results
+
     # =============== 4. SAVE Average Results for this ratio ===============
-    result_save_path = "experiments/results/imagenet_experiment_results.txt"
+    result_save_path = "experiments/results/cifar10_experiment_results.txt"
     with open(result_save_path, 'a') as f:
         f.write("=" * 70 + "\n")
-        f.write(f"\n\n  CIFAR10 - Encoder: {encoder_type}; Label Type: {label_type}\n")
+        f.write(f"  CIFAR10 - Encoder: {encoder_type}; Label Type: {label_type}\n")
         f.write("=" * 70 + "\n")
         f.write(f"  Total data size {data_size+rdata_size}; Primary datasize: {data_size}; Extend datasize: {len(extend_set)}.\n")
         f.write("=" * 70 + "\n")
@@ -219,17 +252,24 @@ def main(encoder_type, label_type):
         f.write(f"  2. Primary Data Test Acc over {ratios} runs: {primary_test_acc:.4f}\n")
         f.write(f"  3. Extend Data Test Acc over {ratios} runs: {extend_testing_acc:.4f}\n")
         f.write("=" * 70 + "\n")
-        f.write(f"  Total SCAR indexes: {total_scar_indexes}\n")
+        f.write(f"  4. Random Extend Data Test Acc over {ratios} runs: {random_extend_testing_acc:.4f}\n")
+        f.write(f"  5. Average Extend Data Test Acc over {ratios} runs: {average_extend_testing_acc:.4f}\n")
         f.write("=" * 70 + "\n")
+        f.write(f"  Total SCAR indexes: {total_scar_indexes}\n")
+        f.write("=" * 70 + "\n\n")
 
 
 
 
 
 if __name__ == "__main__":
-    # encoder_type = "vit"  # Choose from 'resnet', 'vit', or 'dino'
     label_type = "origin"  # Define the label types you want to test
-    for encoder_type in ['resnet', 'vit', 'dino']:
-        main(encoder_type, label_type)
+    for i in range(3):
+        print(f"Running experiments for label type: {label_type} in range {i}.")
+        for encoder_type in ['resnet', 'vit', 'dino']:
+            main(encoder_type, label_type)
+
+    # main("vit", label_type)
+
 
     # python3 experiments/cifar10_classify.py

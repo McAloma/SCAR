@@ -98,7 +98,81 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
 
 
 
+def multi_label_train_test(device, X_train, y_train, X_val, y_val, num_class=10, patience=5, max_epochs=100, threshold=0.5):
+    train_dataset = TensorDataset(X_train, y_train)
+    train_loader = DataLoader(train_dataset, batch_size=500, shuffle=True)
 
+    model = LinearClassifier(X_train.shape[1], num_class).to(device)
+    criterion = nn.BCEWithLogitsLoss()  # ✅ 多标签用 BCE
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    best_acc = 0.0
+    best_model_state = None
+    epochs_no_improve = 0
+
+    for _ in tqdm(range(max_epochs), ascii=True):
+        model.train()
+        total_loss = 0.0
+        correct = 0
+        total = 0
+
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            optimizer.zero_grad()
+            out = model(xb)
+            loss = criterion(out, yb.float())  # ✅ 标签要是 float
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+
+            preds = (torch.sigmoid(out) > threshold).int()  # ✅ 多标签预测
+            correct += ((preds == yb).all(dim=1).sum().item())  # ✅ 完全匹配正确的样本数
+            total += yb.size(0)
+
+        train_acc = correct / total
+
+        # -------- Early Stopping Check based on TRAIN acc --------
+        if train_acc > best_acc:
+            best_acc = train_acc
+            best_model_state = model.state_dict()
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                break
+
+    # -------- Load best model --------
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+
+    model.eval()
+    with torch.no_grad():
+        # -------- 1. Collect training set outputs --------
+        train_logits_list = []
+        train_preds_list = []
+        train_labels_list = []
+
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            out = model(xb)
+            preds = (torch.sigmoid(out) > threshold).int()  # ✅ 预测为 multi-hot
+
+            train_logits_list.append(out.cpu())
+            train_preds_list.append(preds.cpu())
+            train_labels_list.append(yb.cpu())
+
+        train_logits = torch.cat(train_logits_list, dim=0).numpy()
+        train_preds = torch.cat(train_preds_list, dim=0).numpy()
+        train_labels = torch.cat(train_labels_list, dim=0).numpy()
+
+        # -------- 2. Evaluate on validation set --------
+        X_val_device = X_val.to(device)
+        y_val_device = y_val.to(device)
+        logits_val = model(X_val_device)
+        preds_val = (torch.sigmoid(logits_val) > threshold).int()
+        acc_val = ((preds_val == y_val_device).all(dim=1).sum().item()) / y_val_device.size(0)
+
+    return acc_val, train_logits, train_preds, train_labels
 
 
 

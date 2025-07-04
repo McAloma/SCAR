@@ -1,79 +1,59 @@
 import sys, os, json, torch, copy, random, argparse
 sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
+import pandas as pd
+from datetime import datetime
 from collections import defaultdict, Counter
+from datasets import load_dataset, load_from_disk
 from concurrent.futures import ThreadPoolExecutor
-from sklearn.model_selection import StratifiedKFold
 
 from src.model.linear import single_train_test
 from src.scar.scar_calculate import SCARcalculation
 
-# wiki sample num 18315148
 
 
-class WikipediaClassifyTest():
+
+
+class AgNewsClassifyTest():
     def __init__(self, encoder_type="bert"):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Device:", self.device)
 
         if encoder_type == "bert":
-            self.embed_path = "data/embeddings/wikipedia/bert"
+            self.embed_path = "data/embeddings/agnews/bert/train"
+            self.test_embed_path = "data/embeddings/agnews/bert/test"
         elif encoder_type == "roberta":
-            self.embed_path = "data/embeddings/wikipedia/roberta"
+            self.embed_path = "data/embeddings/agnews/roberta/train"
+            self.test_embed_path = "data/embeddings/agnews/roberta/test"
         elif encoder_type == "gpt2":
-            self.embed_path = "data/embeddings/wikipedia/gpt2"
+            self.embed_path = "data/embeddings/agnews/gpt2/train"
+            self.test_embed_path = "data/embeddings/agnews/gpt2/test"
         else:
             raise ValueError("Unsupported encoder type. Choose from 'bert', 'roberta', or 'gpt2'.")
-        
+          
         self.calculation = SCARcalculation()
-        
+
     def load_json_file(self, filepath):
         with open(filepath, "r") as f:
             return json.load(f)
-
+        
     def load_embeddings(self, path):
-        # data_files = [f for f in os.listdir(path) if f.endswith(".json") and f != "label_distribution.json"][:20]    # NOTE: test
-        data_files = [f for f in os.listdir(path) if f.endswith(".json") and f != "label_distribution.json"]
+        load_batches = [os.path.join(path, fname) for fname in os.listdir(path) if fname != "label_distribution.json"]
         data = []
         with ThreadPoolExecutor() as executor:
-            for batch in executor.map(lambda f: self.load_json_file(os.path.join(path, f)), data_files):
-                for item in batch:
-                    if "Unknown" not in item["label"]:
-                        data.append(item)
+            for batch_data in executor.map(self.load_json_file, load_batches):
+                data.extend(batch_data)
 
-        print(f"Loaded {len(data)} samples (excluding 'Unknown') from {path}")
+        all_labels = ["World", "Sports", "Business", "Sci/Tech"]                    # tranform to index
+        label_to_index = {label: idx for idx, label in enumerate(all_labels)}
+
+        df = pd.DataFrame(data)
+        label_to_index = {"World": 0, "Sports": 1, "Business": 2, "Sci/Tech": 3}
+        df["label"] = df["label"].map(label_to_index)
+        data = df.to_dict(orient="records") 
+
+        print(f"Loaded Data from {path}") 
         return data
-    
-    def encode_labels(self, data):
-        label_tuples = [tuple(item["label"]) for item in data]
-        label_counts = Counter(label_tuples)
-
-        valid_labels = {label for label, count in label_counts.items() if count >= 100}
-        filtered_data = [item for item in data if tuple(item["label"]) in valid_labels]
-
-        filtered_label_tuples = [tuple(item["label"]) for item in filtered_data]
-        unique_labels = sorted(set(filtered_label_tuples))
-        label_to_index = {label: idx for idx, label in enumerate(unique_labels)}
-
-        for item in filtered_data:
-            label_tuple = tuple(item["label"])
-            item["label"] = label_to_index[label_tuple]
-
-        print(f"Found {len(unique_labels)} unique label combinations (after filtering).")
-        print(f"Remaining samples after filtering: {len(filtered_data)}")
-        return filtered_data, len(unique_labels)
-    
-    def split_dataset(self, samples, train_ratio=0.8, seed=42):
-        labels = np.array([sample["label"] for sample in samples])
-        indices = np.arange(len(samples))
-        n_splits = int(1 / (1 - train_ratio))
-
-        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-
-        for train_idx, val_idx in skf.split(indices, labels):
-            train_samples = [samples[i] for i in train_idx]
-            val_samples = [samples[i] for i in val_idx]
-            return train_samples, val_samples
     
     def split_prmary_reserve(self, data, split_ratio=1, seed=42):
         label_to_items = defaultdict(list)
@@ -93,7 +73,7 @@ class WikipediaClassifyTest():
             reserve_set[label].extend([items[i] for i in indices[n_primary:]])
 
         return primary_set, reserve_set
-
+    
     def downsample_embeddings(self, data, ratio=1.0):
         if ratio < 1.0:
             label_to_items = defaultdict(list)
@@ -109,21 +89,21 @@ class WikipediaClassifyTest():
 
             data = sampled_data 
 
-        X = np.array([item['embedding'] for item in data])  # (N, D)
-        y = np.array([item['label'] for item in data])      # (N,)
+        X = np.array([item['embedding'] for item in data])              # (N, D)
+        y = np.array([item['label'] for item in data])  # (N,)
         return X, y
     
-    def training_testing_with_given_data(self, dataset, testset, label_type, num_class, sample_ratio=1.0):
 
+    def training_testing_with_given_data(self, dataset, testset, label_type, num_class, sample_ratio=1.0):
         X, y = self.downsample_embeddings(dataset, sample_ratio)
         X = torch.tensor(X, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.long)
         num_samples = X.shape[0]
-
+        
         X_test, y_test = self.downsample_embeddings(testset)
         X_test = torch.tensor(X_test, dtype=torch.float32)
         y_test = torch.tensor(y_test, dtype=torch.long)
-
+        
         testing_acc, train_logits, train_preds, train_labels = single_train_test(self.device, X, y, X_test, y_test, num_class)
         # NOTE: testing_acc, logits_cpu, preds_cpu, labels_cpu = float, (n, k) (n,) (n,)
 
@@ -136,7 +116,7 @@ class WikipediaClassifyTest():
             indexes = []
             for cur in range(ratio): 
                 type_results = {}
-                print(f"=== Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} in {cur+1}/{ratio} ===")
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] === Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} in {cur+1}/{ratio} ===")
                 cur_total_results = self.training_testing_with_given_data(train_set, test_set, label_type, num_class, sample_ratio=1/ratio)      
                 num_samples, num_class, _, train_logits, train_preds, train_labels = cur_total_results
 
@@ -174,23 +154,24 @@ class WikipediaClassifyTest():
             foundation_size = sum([v[1] for v in task_res.values()])  # Fallback to sum of step sizes if prediction fails
 
         if write_hs:
-            with open(f"src/scar/hs_list_wikipedia_{encoder_type}_{write_hs}.json", "w") as f:
+            with open(f"src/scar/hs_list_agnews_{encoder_type}_{write_hs}.json", "w") as f:
                 json.dump(ratio, f)
                 f.write("\n")
                 json.dump(step_hs, f)
 
         return foundation_size, scar_indexes_with_ratio, task_res
+    
+
 
 
 def main(encoder_type, label_type):
-    classifier = WikipediaClassifyTest(encoder_type)
-    # ratios = [1, 2]                  # NOTE: test
+    classifier = AgNewsClassifyTest(encoder_type)
+    num_class = 4
     ratios = [1, 2, 5, 10, 15, 20, 30]
 
     # =========================== 1. Total Set Test ===========================
-    total_data = classifier.load_embeddings(classifier.embed_path)
-    total_dataset, num_class = classifier.encode_labels(total_data)
-    total_set, test_set = classifier.split_dataset(total_dataset, train_ratio=0.8)
+    total_set = classifier.load_embeddings(classifier.embed_path)
+    test_set = classifier.load_embeddings(classifier.test_embed_path)
 
     total_test_results = classifier.training_testing_with_given_data(total_set, test_set, label_type, num_class, sample_ratio=1)  
     total_sample_num, _, total_test_acc, _, _, _ = total_test_results
@@ -209,7 +190,6 @@ def main(encoder_type, label_type):
     # =========================== 3. Fill data set ===========================
     fill_size = max(data_size + rdata_size, primary_foundation_size - data_size)                     # keep fill
     subtype_fill_size = defaultdict(int)
-
     subtype_count = Counter([item['label'] for item in primary_set])
     for tar in scar_indexes_with_ratio[1]:
         subtype_fill_size[tar] = max(0, task_res[tar][1] - subtype_count[tar])
@@ -225,6 +205,7 @@ def main(encoder_type, label_type):
 
     available_reserve_size = min([fill_size] +  available_reserve_sizes)
     print(f"Available Reserve Size: {available_reserve_size}, Fill Size: {fill_size}.")
+    print(f"Normalized Subtype Fill Size: {norm_subtype_fill_size}")
 
     extend_set = copy.deepcopy(primary_set)
     for label in subtype_fill_size:
@@ -264,10 +245,10 @@ def main(encoder_type, label_type):
     _, _, average_extend_testing_acc, _, _, _  = average_extend_test_results
 
     # =============== 4. SAVE Average Results for this ratio ===============
-    result_save_path = "experiments/results/wikipedia_experiment_results.txt"
+    result_save_path = "experiments/results/agnews_experiment_results.txt"
     with open(result_save_path, 'a') as f:
         f.write("=" * 70 + "\n")
-        f.write(f"  Wikipedia - Encoder: {encoder_type}; Label Type: {label_type}\n")
+        f.write(f"  AgNews - Encoder: {encoder_type}; Label Type: {label_type}\n")
         f.write("=" * 70 + "\n")
         f.write(f"  Total data size {data_size+rdata_size}; Primary datasize: {data_size}; Extend datasize: {len(extend_set)}.\n")
         f.write("=" * 70 + "\n")
@@ -285,12 +266,12 @@ def main(encoder_type, label_type):
         f.write("=" * 70 + "\n\n")
 
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run experiments with different encoders and label types.")
-    parser.add_argument("--encoder", type=str, default="bert", choices=["bert", "roberta", "gpt2"], help="Type of encoder to use.")
-    parser.add_argument("--label", type=str, default="origin", help="Label type to use.")
+    label_type = "origin"  # Define the label types you want to test
+    for i in range(3):
+        print(f"Running experiments for label type: {label_type} in range {i}.")
+        for encoder_type in ["bert", "roberta", "gpt2"]:
+            main(encoder_type, label_type)
 
-    args = parser.parse_args()
-    main(args.encoder, args.label)
-
-    # python3 experiments/wikipedia_classify.py --encoder bert --label origin
+    # python3 experiments/agnews_classify.py
