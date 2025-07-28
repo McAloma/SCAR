@@ -162,7 +162,8 @@ class CIFAR10ClassifyTest():
 
 def main(encoder_type, label_type, split_ratio=0.6):
     classifier = CIFAR10ClassifyTest(encoder_type)
-    ratios = [1, 2, 5, 10, 15, 20, 30]
+    ratios = [1, 2]
+    # ratios = [1, 2, 5, 10, 15, 20, 30]
 
     # =========================== 1. Total Set Test ===========================
     total_set = classifier.load_embeddings(classifier.embed_path)
@@ -264,12 +265,12 @@ def main(encoder_type, label_type, split_ratio=0.6):
 
 if __name__ == "__main__":
     label_type = "origin"  # Define the label types you want to test
-    for i in range(3):
-        print(f"Running experiments for label type: {label_type} in range {i}.")
-        for encoder_type in ['resnet', 'vit', 'dino']:
-            main(encoder_type, label_type)
+    # for i in range(3):
+    #     print(f"Running experiments for label type: {label_type} in range {i}.")
+    #     for encoder_type in ['resnet', 'vit', 'dino']:
+    #         main(encoder_type, label_type)
 
-    # main("vit", label_type)
+    main("vit", label_type)
 
 
     # python3 experiments/cifar10_classify.py

@@ -32,8 +32,11 @@ class WikipediaClassifyTest():
             return json.load(f)
 
     def load_embeddings(self, path):
-        # data_files = [f for f in os.listdir(path) if f.endswith(".json") and f != "label_distribution.json"][:20]    # NOTE: test
+        # data_files = [f for f in os.listdir(path) if f.endswith(".json") and f != "label_distribution.json"][:500]    # NOTE: test
         data_files = [f for f in os.listdir(path) if f.endswith(".json") and f != "label_distribution.json"]
+        target_num = len(data_files) // 5
+        data_files = data_files[:target_num]
+
         data = []
         with ThreadPoolExecutor() as executor:
             for batch in executor.map(lambda f: self.load_json_file(os.path.join(path, f)), data_files):
@@ -48,7 +51,9 @@ class WikipediaClassifyTest():
         label_tuples = [tuple(item["label"]) for item in data]
         label_counts = Counter(label_tuples)
 
-        valid_labels = {label for label, count in label_counts.items() if count >= 100}
+        # valid_labels = {label for label, count in label_counts.items() if count >= 100}           # 筛选出现次数≥100的标签
+        valid_labels = {label for label, _ in Counter(label_counts).most_common(100)}               # 筛选出现次数为前100的标签
+
         filtered_data = [item for item in data if tuple(item["label"]) in valid_labels]
 
         filtered_label_tuples = [tuple(item["label"]) for item in filtered_data]
@@ -134,9 +139,9 @@ class WikipediaClassifyTest():
         primary_train_acc = 0.0
         for ratio in ratios:  
             indexes = []
-            for cur in range(ratio): 
+            print(f"=== Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} ===")
+            for _ in range(ratio): 
                 type_results = {}
-                print(f"=== Rough Type: {label_type} with {encoder_type} at ratio={1/ratio} in {cur+1}/{ratio} ===")
                 cur_total_results = self.training_testing_with_given_data(train_set, test_set, label_type, num_class, sample_ratio=1/ratio)      
                 num_samples, num_class, _, train_logits, train_preds, train_labels = cur_total_results
 
@@ -207,7 +212,7 @@ def main(encoder_type, label_type):
     print(f"Primary Foundatoin Set Size: {primary_foundation_size}")
 
     # =========================== 3. Fill data set ===========================
-    fill_size = max(data_size + rdata_size, primary_foundation_size - data_size)                     # keep fill
+    fill_size = rdata_size                   # keep fill
     subtype_fill_size = defaultdict(int)
 
     subtype_count = Counter([item['label'] for item in primary_set])
@@ -285,12 +290,21 @@ def main(encoder_type, label_type):
         f.write("=" * 70 + "\n\n")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run experiments with different encoders and label types.")
-    parser.add_argument("--encoder", type=str, default="bert", choices=["bert", "roberta", "gpt2"], help="Type of encoder to use.")
-    parser.add_argument("--label", type=str, default="origin", help="Label type to use.")
 
+
+
+
+if __name__ == "__main__": 
+    parser = argparse.ArgumentParser(description="Run Wikipedia classification experiments.")
+    parser.add_argument("--encoder", type=str, default="bert", choices=["bert", "roberta", "gpt2"])
+    parser.add_argument("--label", type=str, default="origin")
+
+    path = "data/embeddings/wikipedia/bert"
+    data_files = [f for f in os.listdir(path) if f.endswith(".json") and f != "label_distribution.json"]
+    print(len(data_files))
+    
     args = parser.parse_args()
     main(args.encoder, args.label)
 
     # python3 experiments/wikipedia_classify.py --encoder bert --label origin
+

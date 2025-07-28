@@ -1,0 +1,78 @@
+======================================================================
+  MSRVTT - Encoder: xclip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 9000; Primary datasize: 5398; Extend datasize: 7138.
+  Total Foundation data size estimation: 72858.09763281123
+  Primary Foundation data size estimation: 73844.15125672812
+  1. Total Data Test Acc: 0.1930
+  2. Primary Data Test Acc: 0.1320
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1950
+  4. Random Extend Data Test Acc: 0.1950
+  5. Average Extend Data Test Acc: 0.1950
+======================================================================
+  [VIDEO MODALITY]
+  Total data size 9000; Primary datasize: 5398; Extend datasize: 7755.
+  Total Foundation data size estimation: 59915.934993434465
+  Primary Foundation data size estimation: 72299.28764500222
+  1. Total Data Test Acc: 0.0410
+  2. Primary Data Test Acc: 0.0270
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1000
+  4. Random Extend Data Test Acc: 0.0780
+  5. Average Extend Data Test Acc: 0.0950
+======================================================================
+
+======================================================================
+  MSRVTT - Encoder: xclip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 9000; Primary datasize: 5398; Extend datasize: 7100.
+  Total Foundation data size estimation: 72976.96576940497
+  Primary Foundation data size estimation: 73165.13720949084
+  1. Total Data Test Acc: 0.1950
+  2. Primary Data Test Acc: 0.1320
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1320
+  4. Random Extend Data Test Acc: 0.1950
+  5. Average Extend Data Test Acc: 0.1950
+======================================================================
+  [VIDEO MODALITY]
+  Total data size 9000; Primary datasize: 5398; Extend datasize: 7767.
+  Total Foundation data size estimation: 60152.09723957575
+  Primary Foundation data size estimation: 70454.77270906512
+  1. Total Data Test Acc: 0.0720
+  2. Primary Data Test Acc: 0.0740
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1060
+  4. Random Extend Data Test Acc: 0.0430
+  5. Average Extend Data Test Acc: 0.0540
+======================================================================
+
+======================================================================
+  MSRVTT - Encoder: xclip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 9000; Primary datasize: 5398; Extend datasize: 7163.
+  Total Foundation data size estimation: 73853.57351751567
+  Primary Foundation data size estimation: 74794.85353990449
+  1. Total Data Test Acc: 0.1320
+  2. Primary Data Test Acc: 0.1950
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1990
+  4. Random Extend Data Test Acc: 0.1950
+  5. Average Extend Data Test Acc: 0.1320
+======================================================================
+  [VIDEO MODALITY]
+  Total data size 9000; Primary datasize: 5398; Extend datasize: 7797.
+  Total Foundation data size estimation: 72477.62552812445
+  Primary Foundation data size estimation: 68481.859318997
+  1. Total Data Test Acc: 0.0720
+  2. Primary Data Test Acc: 0.0420
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.0980
+  4. Random Extend Data Test Acc: 0.0730
+  5. Average Extend Data Test Acc: 0.0950
+======================================================================
+

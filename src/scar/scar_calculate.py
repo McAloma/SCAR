@@ -1,4 +1,4 @@
-import sys, os, json, torch, random, time
+import sys, os, json, torch, random, time, gc
 sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
 from joblib import Parallel, delayed
@@ -29,89 +29,88 @@ class SCARcalculation():
 
             metrics_per_task[task] = hs_scar
 
+        del train_logits, train_preds, train_labels, output_binary_class
+        gc.collect()
+
         return metrics_per_task, accuracy
 
     def format_as_binary_per_class(self, logits_cpu, preds_cpu, labels_cpu, num_classes):
         output_per_class = {}
         n_samples = logits_cpu.shape[0]
 
-        is_multihot = labels_cpu.ndim == 2
-
         for c in range(num_classes):
             class_logits = logits_cpu[:, c]
             binary_logits = np.zeros((n_samples, 2))
 
-            if is_multihot:
-                class_labels = labels_cpu[:, c].astype(int)
-            else:
-                class_labels = (labels_cpu == c).astype(int)
+            class_labels = (labels_cpu == c).astype(int)
 
             binary_logits[:, 0] = -class_logits * (1 - class_labels)
             binary_logits[:, 1] =  class_logits * class_labels
 
-            if is_multihot:
-                class_preds = (preds_cpu[:, c] == 1).astype(int)
-            else:
-                class_preds = (preds_cpu == c).astype(int)
+            class_preds = (preds_cpu == c).astype(int)
 
             output_per_class[c] = [binary_logits, class_preds, class_labels]
 
         return output_per_class
 
-    # def calculate_scar(self, results_list, num_samples, ratio):
-    #     task_names = list(results_list.keys())
+    def calculate_scar(self, results_list, num_samples, ratio):
+        task_names = list(results_list.keys())
 
-    #     all_positives = np.array([results_list[key][1] for key in results_list])
-    #     all_negative_mask = np.all(all_positives == 0, axis=0)
-    #     all_negative_indices = np.where(all_negative_mask)[0]
+        all_predictions = np.array([results_list[task][1] for task in results_list])  # shape: (num_tasks, num_samples)
+        all_labels = np.array([results_list[task][2] for task in results_list])       # shape: (num_tasks, num_samples)
+        all_wrong_mask = all_predictions != all_labels
 
-    #     metrics_per_task = {}
-    #     for task in task_names:
-    #         logits, preds_cpu, labels = results_list[task]
+        all_false_mask = np.all(all_wrong_mask, axis=0)
+        all_false_indices = np.where(all_false_mask)[0]
 
-    #         logits = np.array(logits)
-    #         preds_cpu = np.array(preds_cpu)
-    #         labels = np.array(labels)
+        metrics_per_task = {}
+        for task in task_names:
+            logits, preds_cpu, labels = results_list[task]
 
-    #         valid_indices = np.setdiff1d(np.arange(num_samples), all_negative_indices)
-    #         true_indices = valid_indices[preds_cpu[valid_indices] == True]    # valid index
-    #         false_indices = valid_indices[preds_cpu[valid_indices] == False]         # plausald index
+            logits = np.array(logits)
+            preds_cpu = np.array(preds_cpu)
+            labels = np.array(labels)
 
-    #         other_tasks = [t for t in task_names if t != task]
+            valid_indices = np.setdiff1d(np.arange(num_samples), all_false_indices)
+            true_indices = valid_indices[preds_cpu[valid_indices] == labels[valid_indices]]         # valid index
+            false_indices = valid_indices[preds_cpu[valid_indices] != labels[valid_indices]]        # semi-valid index
 
-    #         # --- Task Related Index: Coverage & Authenticity ---
-    #         k = logits.shape[1]
-    #         coverage_values = []
-    #         for c in range(k):
-    #             mask = (labels == c) & (preds_cpu == 1)
-    #             class_logits = logits[mask, c]
-    #             positive_logits = class_logits[class_logits > 0]
-    #             if len(positive_logits) > 0:
-    #                 coverage_cur = 1 - self.estimate_jsd_from_positive_samples(positive_logits)
-    #                 coverage_values.append(coverage_cur)
+            other_tasks = [t for t in task_names if t != task]
 
-    #         authenticity_value = len(true_indices) / num_samples
+            # --- Task Related Index: Coverage & Authenticity ---
+            k = logits.shape[1]
+            coverage_values = []
+            for c in range(k):
+                mask = (labels == c) & (preds_cpu == 1)
+                class_logits = logits[mask, c]
+                positive_logits = class_logits[class_logits > 0]
+                if len(positive_logits) > 0:
+                    coverage_cur = 1 - self.estimate_jsd_fast(positive_logits)
+                    coverage_values.append(coverage_cur)
 
-    #         # --- Task non-Related Index: Scale & Richness ---
-    #         scale = (num_samples - len(all_negative_indices)) / num_samples
-    #         scale_value = scale / ratio
+            authenticity_value = len(true_indices) / num_samples
 
-    #         richness_values = [1 for _ in range(len(true_indices))]
-    #         for idx in false_indices:
-    #             other_corrects = [results_list[other][1][idx] for other in other_tasks]
-    #             richness = np.mean(other_corrects)
-    #             richness_values.append(richness)
+            # --- Task non-Related Index: Scale & Richness ---
+            scale = (num_samples - len(all_false_indices)) / num_samples
+            scale_value = scale / ratio
 
-    #         # ------------------------------------------
+            richness_values = [1 for _ in range(len(true_indices))]
+            for idx in false_indices:
+                other_corrects = [results_list[other][1][idx] for other in other_tasks]
+                richness = np.mean(other_corrects)
+                richness_values.append(richness)
 
-    #         metrics_per_task[task] = {
-    #             "scale": scale_value,
-    #             "coverage": float(np.mean(coverage_values)) if len(coverage_values) > 0 else 0.0,
-    #             "authenticity": authenticity_value,
-    #             "richness": float(np.mean(richness_values)) if len(richness_values) > 0 else 0.0
-    #         }
+            metrics_per_task[task] = {
+                "scale": scale_value,
+                "coverage": float(np.mean(coverage_values)) if len(coverage_values) > 0 else 0.0,
+                "authenticity": authenticity_value,
+                "richness": float(np.mean(richness_values)) if len(richness_values) > 0 else 0.0
+            }
 
-    #     return metrics_per_task
+        del logits, preds_cpu, labels
+        gc.collect()
+
+        return metrics_per_task
 
     def estimate_jsd_fast(self, samples, bins=100):
         samples = np.asarray(samples)
@@ -129,75 +128,6 @@ class SCARcalculation():
         q /= np.sum(q)
         jsd = jensenshannon(p, q, base=2) ** 2
         return jsd
-
-    def calculate_scar(self, results_list, num_samples, ratio):
-        task_names = list(results_list.keys())
-        k = results_list[task_names[0]][0].shape[1]  # 分类数
-
-        all_preds = np.array([results_list[t][1] for t in task_names])  # (T, N)
-        all_negative_mask = np.all(all_preds == 0, axis=0)
-        all_negative_indices = np.where(all_negative_mask)[0]
-        valid_mask_global = ~all_negative_mask
-
-        metrics_per_task = {}
-
-        for task in task_names:
-            logits, preds_cpu, labels = map(np.array, results_list[task])
-            positive_mask = preds_cpu == 1
-            valid_mask = valid_mask_global.copy()
-
-            true_mask = valid_mask & positive_mask
-            false_mask = valid_mask & (preds_cpu == 0)
-            true_count = np.sum(true_mask)
-            false_indices = np.where(false_mask)[0]
-
-            # --- Coverage ---
-            def get_jsd_for_class(c):
-                class_mask = (labels == c) & positive_mask
-                if np.count_nonzero(class_mask) <= 1:
-                    return None
-                pos_logits = logits[class_mask, c]
-                pos_logits = pos_logits[pos_logits > 0]
-                if len(pos_logits) <= 1:
-                    return None
-                jsd = self.estimate_jsd_fast(pos_logits, bins=100)
-                return 1 - jsd
-
-            unique_classes = np.unique(labels)
-            coverage_results = Parallel(n_jobs=-1)(
-                delayed(get_jsd_for_class)(c) for c in unique_classes
-            )
-            coverage_values = [v for v in coverage_results if v is not None]
-            coverage = float(np.mean(coverage_values)) if coverage_values else 0.0
-
-            # --- Authenticity ---
-            authenticity = true_count / num_samples
-
-            # --- Scale ---
-            scale = (num_samples - len(all_negative_indices)) / (num_samples * ratio)
-
-            # --- Richness ---
-            other_tasks = [t for t in task_names if t != task]
-            other_preds = np.array([results_list[other][1][false_indices] for other in other_tasks])  # (T-1, |F|)
-            if other_preds.size > 0:
-                richness_false = np.mean(other_preds, axis=0)
-                richness_values = np.concatenate([
-                    np.ones(true_count),
-                    richness_false
-                ])
-            else:
-                richness_values = np.ones(true_count)
-
-            richness = float(np.mean(richness_values)) if len(richness_values) > 0 else 0.0
-
-            metrics_per_task[task] = {
-                "scale": scale,
-                "coverage": coverage,
-                "authenticity": authenticity,
-                "richness": richness
-            }
-
-        return metrics_per_task
     
     def count_h(self, s, c, a, r):
         r, delta, err_gen, err_emp = s, 1-c, 1-a, 1-r
@@ -392,6 +322,12 @@ class SCARcalculation():
         log_delta_sumh = np.log(len(H_list)) * (np.log(np.sum(H_list)) - np.log(delta_E))
 
         return log_delta_sumh / epsilon**2
+
+
+
+
+
+
     
 
 if __name__ == "__main__":

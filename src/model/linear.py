@@ -1,4 +1,4 @@
-import copy
+import copy, datetime, psutil
 from tqdm import tqdm
 from sklearn.model_selection import KFold
 import torch
@@ -22,7 +22,7 @@ class LinearClassifier(torch.nn.Module):
 
 def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, patience=5, max_epochs=100):
     train_dataset = TensorDataset(X_train, y_train)
-    train_loader = DataLoader(train_dataset, batch_size=500, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=500000, shuffle=True)
 
     model = LinearClassifier(X_train.shape[1], num_class).to(device)
     criterion = nn.CrossEntropyLoss()
@@ -32,36 +32,46 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
     best_model_state = None
     epochs_no_improve = 0
 
-    for _ in tqdm(range(max_epochs), ascii=True):
-        model.train()
-        total_loss = 0.0
-        correct = 0
-        total = 0
+    with tqdm(range(max_epochs), ascii=True) as pbar:
+        for _ in pbar:
+            current_time = datetime.datetime.now().strftime("%H:%M:%S")
+            mem_usage = psutil.virtual_memory().used / (1024 ** 3)  # 转换为GB
+            if torch.cuda.is_available():
+                gpu_mem = torch.cuda.memory_allocated() / (1024 ** 3)  # 当前分配的显存
+            else:
+                gpu_mem = 0.0
 
-        for xb, yb in train_loader:
-            xb, yb = xb.to(device), yb.to(device)
-            optimizer.zero_grad()
-            out = model(xb)
-            loss = criterion(out, yb)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
+            pbar.set_postfix_str(f"Time: {current_time} | RAM: {mem_usage:.1f}GB | GPU: {gpu_mem:.1f}GB")
 
-            preds = torch.argmax(out, dim=1)
-            correct += (preds == yb).sum().item()
-            total += yb.size(0)
+            model.train()
+            total_loss = 0.0
+            correct = 0
+            total = 0
 
-        train_acc = correct / total
+            for xb, yb in train_loader:
+                xb, yb = xb.to(device), yb.to(device)
+                optimizer.zero_grad()
+                out = model(xb)
+                loss = criterion(out, yb)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
 
-        # -------- Early Stopping Check based on TRAIN acc --------
-        if train_acc > best_acc:
-            best_acc = train_acc
-            best_model_state = model.state_dict()
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
-            if epochs_no_improve >= patience:
-                break
+                preds = torch.argmax(out, dim=1)
+                correct += (preds == yb).sum().item()
+                total += yb.size(0)
+
+            train_acc = correct / total
+
+            # -------- Early Stopping Check based on TRAIN acc --------
+            if train_acc > best_acc:
+                best_acc = train_acc
+                best_model_state = model.state_dict()
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve >= patience:
+                    break
 
     # -------- Load best model --------
     if best_model_state is not None:
@@ -100,7 +110,7 @@ def single_train_test(device, X_train, y_train, X_val, y_val, num_class=10, pati
 
 def multi_label_train_test(device, X_train, y_train, X_val, y_val, num_class=10, patience=5, max_epochs=100, threshold=0.5):
     train_dataset = TensorDataset(X_train, y_train)
-    train_loader = DataLoader(train_dataset, batch_size=500, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=10000, shuffle=True)
 
     model = LinearClassifier(X_train.shape[1], num_class).to(device)
     criterion = nn.BCEWithLogitsLoss()  # ✅ 多标签用 BCE

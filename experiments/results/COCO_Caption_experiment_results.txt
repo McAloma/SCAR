@@ -1,0 +1,234 @@
+======================================================================
+  COCO_Caption - Encoder: siglip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49651; Extend datasize: 63789.
+  Total Foundation data size estimation: 278861.33082897036
+  Primary Foundation data size estimation: 325711.6127096256
+  1. Total Data Test Acc: 0.1399
+  2. Primary Data Test Acc: 0.1530
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1847
+  4. Random Extend Data Test Acc: 0.1528
+  5. Average Extend Data Test Acc: 0.1759
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49650; Extend datasize: 53140.
+  Total Foundation data size estimation: 284041.66370568256
+  Primary Foundation data size estimation: 283930.5082528974
+  1. Total Data Test Acc: 0.2017
+  2. Primary Data Test Acc: 0.2151
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.2194
+  4. Random Extend Data Test Acc: 0.2127
+  5. Average Extend Data Test Acc: 0.2140
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: clip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49651; Extend datasize: 58380.
+  Total Foundation data size estimation: 256786.32486557055
+  Primary Foundation data size estimation: 259047.45593160723
+  1. Total Data Test Acc: 0.6029
+  2. Primary Data Test Acc: 0.5972
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6267
+  4. Random Extend Data Test Acc: 0.5869
+  5. Average Extend Data Test Acc: 0.6211
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49650; Extend datasize: 58188.
+  Total Foundation data size estimation: 254507.55208876418
+  Primary Foundation data size estimation: 257069.54402348513
+  1. Total Data Test Acc: 0.6227
+  2. Primary Data Test Acc: 0.6167
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6650
+  4. Random Extend Data Test Acc: 0.6252
+  5. Average Extend Data Test Acc: 0.6533
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: clip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49651; Extend datasize: 58400.
+  Total Foundation data size estimation: 258673.500792538
+  Primary Foundation data size estimation: 259590.0599797552
+  1. Total Data Test Acc: 0.5914
+  2. Primary Data Test Acc: 0.5937
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6169
+  4. Random Extend Data Test Acc: 0.5883
+  5. Average Extend Data Test Acc: 0.6170
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49650; Extend datasize: 58192.
+  Total Foundation data size estimation: 254999.76169424967
+  Primary Foundation data size estimation: 257004.1954749454
+  1. Total Data Test Acc: 0.6149
+  2. Primary Data Test Acc: 0.6235
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6533
+  4. Random Extend Data Test Acc: 0.6289
+  5. Average Extend Data Test Acc: 0.6585
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: coca; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49647; Extend datasize: 60476.
+  Total Foundation data size estimation: 256352.37489641883
+  Primary Foundation data size estimation: 278353.545207246
+  1. Total Data Test Acc: 0.5985
+  2. Primary Data Test Acc: 0.6132
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6506
+  4. Random Extend Data Test Acc: 0.6064
+  5. Average Extend Data Test Acc: 0.6466
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49648; Extend datasize: 58309.
+  Total Foundation data size estimation: 259882.2132178478
+  Primary Foundation data size estimation: 262947.7866658881
+  1. Total Data Test Acc: 0.6117
+  2. Primary Data Test Acc: 0.6078
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6266
+  4. Random Extend Data Test Acc: 0.6111
+  5. Average Extend Data Test Acc: 0.6256
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: siglip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49651; Extend datasize: 63736.
+  Total Foundation data size estimation: 323191.482040552
+  Primary Foundation data size estimation: 277603.2058188584
+  1. Total Data Test Acc: 0.1382
+  2. Primary Data Test Acc: 0.1579
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1852
+  4. Random Extend Data Test Acc: 0.1203
+  5. Average Extend Data Test Acc: 0.1281
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49650; Extend datasize: 53132.
+  Total Foundation data size estimation: 283774.2048076732
+  Primary Foundation data size estimation: 283740.4892896619
+  1. Total Data Test Acc: 0.2228
+  2. Primary Data Test Acc: 0.2098
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.2079
+  4. Random Extend Data Test Acc: 0.2095
+  5. Average Extend Data Test Acc: 0.1831
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: clip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49651; Extend datasize: 58379.
+  Total Foundation data size estimation: 255989.91815435086
+  Primary Foundation data size estimation: 258965.74125238313
+  1. Total Data Test Acc: 0.5847
+  2. Primary Data Test Acc: 0.5976
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6245
+  4. Random Extend Data Test Acc: 0.5927
+  5. Average Extend Data Test Acc: 0.6155
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49650; Extend datasize: 58191.
+  Total Foundation data size estimation: 254870.74758121587
+  Primary Foundation data size estimation: 256605.74672948153
+  1. Total Data Test Acc: 0.6307
+  2. Primary Data Test Acc: 0.6224
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6627
+  4. Random Extend Data Test Acc: 0.6288
+  5. Average Extend Data Test Acc: 0.6607
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: coca; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49647; Extend datasize: 60427.
+  Total Foundation data size estimation: 256401.43312580427
+  Primary Foundation data size estimation: 258170.70459433945
+  1. Total Data Test Acc: 0.5955
+  2. Primary Data Test Acc: 0.5946
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6435
+  4. Random Extend Data Test Acc: 0.5868
+  5. Average Extend Data Test Acc: 0.6465
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49648; Extend datasize: 58327.
+  Total Foundation data size estimation: 260734.9114975277
+  Primary Foundation data size estimation: 262914.2496743472
+  1. Total Data Test Acc: 0.6064
+  2. Primary Data Test Acc: 0.6143
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6247
+  4. Random Extend Data Test Acc: 0.6130
+  5. Average Extend Data Test Acc: 0.6298
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: coca; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49647; Extend datasize: 60524.
+  Total Foundation data size estimation: 256985.3758712338
+  Primary Foundation data size estimation: 258975.0679946042
+  1. Total Data Test Acc: 0.6065
+  2. Primary Data Test Acc: 0.5956
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6522
+  4. Random Extend Data Test Acc: 0.6006
+  5. Average Extend Data Test Acc: 0.6326
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49648; Extend datasize: 58305.
+  Total Foundation data size estimation: 261292.82680782594
+  Primary Foundation data size estimation: 262102.2172272497
+  1. Total Data Test Acc: 0.6118
+  2. Primary Data Test Acc: 0.6023
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.6279
+  4. Random Extend Data Test Acc: 0.6115
+  5. Average Extend Data Test Acc: 0.6263
+======================================================================
+
+======================================================================
+  COCO_Caption - Encoder: siglip; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 82783; Primary datasize: 49651; Extend datasize: 63715.
+  Total Foundation data size estimation: 279293.81426754047
+  Primary Foundation data size estimation: 320809.473256254
+  1. Total Data Test Acc: 0.1512
+  2. Primary Data Test Acc: 0.1219
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1813
+  4. Random Extend Data Test Acc: 0.1376
+  5. Average Extend Data Test Acc: 0.1708
+======================================================================
+  [IMAGE MODALITY]
+  Total data size 82783; Primary datasize: 49650; Extend datasize: 53146.
+  Total Foundation data size estimation: 283720.21674437466
+  Primary Foundation data size estimation: 283986.77115885465
+  1. Total Data Test Acc: 0.2058
+  2. Primary Data Test Acc: 0.2123
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.2124
+  4. Random Extend Data Test Acc: 0.1799
+  5. Average Extend Data Test Acc: 0.2429
+======================================================================
+

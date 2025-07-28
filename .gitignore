@@ -8,6 +8,7 @@ ckpts/
 data/
 .DS_Store
 experiments/slurms/
+temp_memmap/
 
 # C extensions
 *.so

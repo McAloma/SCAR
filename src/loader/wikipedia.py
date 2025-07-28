@@ -71,7 +71,7 @@ class Wikipedia_Dataloader():
             self.save_path = "./data/embeddings/wikipedia/roberta"
         elif encoder_type == "gpt2":
             self.encoder = GPT2_Encoder()
-            self.save_path = "./data/embeddings/wikipedia/gtp2"
+            self.save_path = "./data/embeddings/wikipedia/gpt2"
         else:
             raise ValueError("Unsupported encoder type. Choose from 'bert', 'roberta', or 'gpt2'.")
         
