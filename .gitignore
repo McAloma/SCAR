@@ -10,6 +10,7 @@ data/
 experiments/slurms/
 temp_memmap/
 src/library/
+draw/fonts/
 
 # C extensions
 *.so
