@@ -39,14 +39,14 @@ class MSRVTTMultiModalTest():
         print(f"Loaded Data from {path}") 
         return data
 
-    def split_prmary_reserve(self, data, split_ratio=1, seed=42):
+    def split_prmary_reserve(self, data, split_ratio=1):
         label_to_items = defaultdict(list)
         for item in data:
             label_to_items[item['label']].append(item)
 
         primary_set = []
         reserve_set = defaultdict(list)
-        rng = np.random.default_rng(seed)
+        rng = np.random.default_rng()
 
         for label, items in label_to_items.items():
             n_total = len(items)
@@ -290,8 +290,23 @@ def main(encoder_type, label_type):
 
 
 if __name__ == "__main__":
-    encoder = "xclip"
+    # encoder = "xclip_3"
+    encoder = "videoclip_3"
     label = "origin"
     for _ in range(3):
         print(f"Running with Encoder: {encoder}, Label: {label}")
         main(encoder, label)
+
+    # for encoder in ["xclip_3", "videoclip_3"]:
+    #     label = "origin"
+    #     for _ in range(3):
+    #         print(f"Running with Encoder: {encoder}, Label: {label}")
+    #         main(encoder, label)
+
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--encoder_type", type=str, required=True)
+    # parser.add_argument("--label_type", type=str, default="origin")
+    # parser.add_argument("--round", type=int, default=0)  # 可选，用于日志标记或控制种子
+
+    # args = parser.parse_args()
+    # main(args.encoder_type, args.label_type)

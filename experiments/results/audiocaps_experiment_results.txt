@@ -2,77 +2,155 @@
   AudioCaps - Encoder: clap; Label Type: origin
 ======================================================================
   [TEXT MODALITY]
-  Total data size 45178; Primary datasize: 27105; Extend datasize: 40424.
-  Total Foundation data size estimation: 55456.585314923075
-  Primary Foundation data size estimation: 57211.80651353835
-  1. Total Data Test Acc: 0.3482
-  2. Primary Data Test Acc: 0.3464
+  Total data size 45178; Primary datasize: 27105; Extend datasize: 40147.
+  Total Foundation data size estimation: 57837.045815287565
+  Primary Foundation data size estimation: 57665.73458448748
+  1. Total Data Test Acc: 0.4089
+  2. Primary Data Test Acc: 0.4116
 ----------------------------------------------------------------------
-  3. Extend Data Test Acc: 0.3446
-  4. Random Extend Data Test Acc: 0.3482
-  5. Average Extend Data Test Acc: 0.3396
+  3. Extend Data Test Acc: 0.4053
+  4. Random Extend Data Test Acc: 0.4067
+  5. Average Extend Data Test Acc: 0.4085
 ======================================================================
   [AUDIO MODALITY]
-  Total data size 45178; Primary datasize: 27105; Extend datasize: 40455.
-  Total Foundation data size estimation: 50735.65798183556
-  Primary Foundation data size estimation: 52414.73046712971
-  1. Total Data Test Acc: 0.2672
-  2. Primary Data Test Acc: 0.2632
-----------------------------------------------------------------------
-  3. Extend Data Test Acc: 0.2519
-  4. Random Extend Data Test Acc: 0.2582
-  5. Average Extend Data Test Acc: 0.2546
-======================================================================
-
-======================================================================
-  AudioCaps - Encoder: clap; Label Type: origin
-======================================================================
-  [TEXT MODALITY]
-  Total data size 45178; Primary datasize: 27105; Extend datasize: 40364.
-  Total Foundation data size estimation: 55126.09491850197
-  Primary Foundation data size estimation: 56787.8187847003
-  1. Total Data Test Acc: 0.3486
-  2. Primary Data Test Acc: 0.3495
-----------------------------------------------------------------------
-  3. Extend Data Test Acc: 0.3423
-  4. Random Extend Data Test Acc: 0.3500
-  5. Average Extend Data Test Acc: 0.3423
-======================================================================
-  [AUDIO MODALITY]
-  Total data size 45178; Primary datasize: 27105; Extend datasize: 40771.
-  Total Foundation data size estimation: 51091.5726818163
-  Primary Foundation data size estimation: 52250.172429235856
-  1. Total Data Test Acc: 0.2672
-  2. Primary Data Test Acc: 0.2654
+  Total data size 45178; Primary datasize: 27105; Extend datasize: 40475.
+  Total Foundation data size estimation: 50930.31913569926
+  Primary Foundation data size estimation: 51966.67081225099
+  1. Total Data Test Acc: 0.2609
+  2. Primary Data Test Acc: 0.2623
 ----------------------------------------------------------------------
   3. Extend Data Test Acc: 0.2627
-  4. Random Extend Data Test Acc: 0.2573
-  5. Average Extend Data Test Acc: 0.2641
+  4. Random Extend Data Test Acc: 0.2681
+  5. Average Extend Data Test Acc: 0.2600
 ======================================================================
 
 ======================================================================
   AudioCaps - Encoder: clap; Label Type: origin
 ======================================================================
   [TEXT MODALITY]
-  Total data size 45178; Primary datasize: 27105; Extend datasize: 40412.
-  Total Foundation data size estimation: 56106.06700955555
-  Primary Foundation data size estimation: 56675.03890230898
-  1. Total Data Test Acc: 0.3477
-  2. Primary Data Test Acc: 0.3419
+  Total data size 45178; Primary datasize: 27105; Extend datasize: 40292.
+  Total Foundation data size estimation: 56091.86606478559
+  Primary Foundation data size estimation: 58777.01581744944
+  1. Total Data Test Acc: 0.4049
+  2. Primary Data Test Acc: 0.4089
 ----------------------------------------------------------------------
-  3. Extend Data Test Acc: 0.3405
-  4. Random Extend Data Test Acc: 0.3482
-  5. Average Extend Data Test Acc: 0.3383
+  3. Extend Data Test Acc: 0.4026
+  4. Random Extend Data Test Acc: 0.4148
+  5. Average Extend Data Test Acc: 0.4094
 ======================================================================
   [AUDIO MODALITY]
-  Total data size 45178; Primary datasize: 27105; Extend datasize: 40364.
-  Total Foundation data size estimation: 50852.48570166296
-  Primary Foundation data size estimation: 52249.735688356595
-  1. Total Data Test Acc: 0.2654
-  2. Primary Data Test Acc: 0.2623
+  Total data size 45178; Primary datasize: 27105; Extend datasize: 40419.
+  Total Foundation data size estimation: 50934.73952369976
+  Primary Foundation data size estimation: 52421.01488783217
+  1. Total Data Test Acc: 0.2578
+  2. Primary Data Test Acc: 0.2668
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.2636
+  4. Random Extend Data Test Acc: 0.2609
+  5. Average Extend Data Test Acc: 0.2596
+======================================================================
+
+======================================================================
+  AudioCaps - Encoder: clap; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 45178; Primary datasize: 27105; Extend datasize: 39966.
+  Total Foundation data size estimation: 55388.338699472566
+  Primary Foundation data size estimation: 58973.07274294278
+  1. Total Data Test Acc: 0.4049
+  2. Primary Data Test Acc: 0.4112
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.4062
+  4. Random Extend Data Test Acc: 0.4076
+  5. Average Extend Data Test Acc: 0.4103
+======================================================================
+  [AUDIO MODALITY]
+  Total data size 45178; Primary datasize: 27105; Extend datasize: 40868.
+  Total Foundation data size estimation: 50786.063380810825
+  Primary Foundation data size estimation: 52560.68023779547
+  1. Total Data Test Acc: 0.2591
+  2. Primary Data Test Acc: 0.2677
 ----------------------------------------------------------------------
   3. Extend Data Test Acc: 0.2533
   4. Random Extend Data Test Acc: 0.2591
-  5. Average Extend Data Test Acc: 0.2596
+  5. Average Extend Data Test Acc: 0.2578
+======================================================================
+
+======================================================================
+  AudioCaps - Encoder: pengi; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 45178; Primary datasize: 27104; Extend datasize: 36077.
+  Total Foundation data size estimation: 69617.95992766634
+  Primary Foundation data size estimation: 56127.77070735139
+  1. Total Data Test Acc: 0.0778
+  2. Primary Data Test Acc: 0.0760
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.0729
+  4. Random Extend Data Test Acc: 0.0765
+  5. Average Extend Data Test Acc: 0.0747
+======================================================================
+  [AUDIO MODALITY]
+  Total data size 45178; Primary datasize: 27104; Extend datasize: 35859.
+  Total Foundation data size estimation: 56423.5447198529
+  Primary Foundation data size estimation: 62772.49674536501
+  1. Total Data Test Acc: 0.1206
+  2. Primary Data Test Acc: 0.1125
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1102
+  4. Random Extend Data Test Acc: 0.1138
+  5. Average Extend Data Test Acc: 0.1098
+======================================================================
+
+======================================================================
+  AudioCaps - Encoder: pengi; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 45178; Primary datasize: 27104; Extend datasize: 36040.
+  Total Foundation data size estimation: 55084.11905881815
+  Primary Foundation data size estimation: 65630.22417348027
+  1. Total Data Test Acc: 0.0751
+  2. Primary Data Test Acc: 0.0778
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.0715
+  4. Random Extend Data Test Acc: 0.0760
+  5. Average Extend Data Test Acc: 0.0769
+======================================================================
+  [AUDIO MODALITY]
+  Total data size 45178; Primary datasize: 27104; Extend datasize: 36522.
+  Total Foundation data size estimation: 56331.11361859442
+  Primary Foundation data size estimation: 57367.24055494633
+  1. Total Data Test Acc: 0.1156
+  2. Primary Data Test Acc: 0.1188
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1107
+  4. Random Extend Data Test Acc: 0.1296
+  5. Average Extend Data Test Acc: 0.1053
+======================================================================
+
+======================================================================
+  AudioCaps - Encoder: pengi; Label Type: origin
+======================================================================
+  [TEXT MODALITY]
+  Total data size 45178; Primary datasize: 27104; Extend datasize: 36813.
+  Total Foundation data size estimation: 72175.91511602829
+  Primary Foundation data size estimation: 65860.97639823242
+  1. Total Data Test Acc: 0.0747
+  2. Primary Data Test Acc: 0.0778
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.0729
+  4. Random Extend Data Test Acc: 0.0783
+  5. Average Extend Data Test Acc: 0.0729
+======================================================================
+  [AUDIO MODALITY]
+  Total data size 45178; Primary datasize: 27104; Extend datasize: 36657.
+  Total Foundation data size estimation: 56379.097074869314
+  Primary Foundation data size estimation: 57769.35987080376
+  1. Total Data Test Acc: 0.1188
+  2. Primary Data Test Acc: 0.1309
+----------------------------------------------------------------------
+  3. Extend Data Test Acc: 0.1102
+  4. Random Extend Data Test Acc: 0.1138
+  5. Average Extend Data Test Acc: 0.1098
 ======================================================================
 

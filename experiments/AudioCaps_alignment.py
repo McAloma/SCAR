@@ -1,4 +1,4 @@
-import sys, os, json, torch, copy, random
+import sys, os, json, torch, copy, random, argparse
 sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 import numpy as np
 from datetime import datetime
@@ -34,14 +34,14 @@ class AudioCapsMultiModalTest():
         print(f"Loaded {len(data)} samples from {path}")
         return data
 
-    def split_primary_reserve(self, data, split_ratio=0.6, seed=42):
+    def split_primary_reserve(self, data, split_ratio=0.6):
         label_to_items = defaultdict(list)
         for item in data:
             label_to_items[item['label']].append(item)
 
         primary_set = []
         reserve_set = defaultdict(list)
-        rng = np.random.default_rng(seed)
+        rng = np.random.default_rng()
 
         for label, items in label_to_items.items():
             n = len(items)
@@ -205,7 +205,7 @@ def single_modal_main(modal_type, encoder_type, label_type):
     add_num = (len(extend_set) - len(primary_set)) / len([label for label in subtype_fill_size if label in reserve_set])
     for label in subtype_fill_size:
         if label in reserve_set:
-            add_data = random.sample(reserve_set[label], int(add_num))
+            add_data = random.sample(reserve_set[label], min(int(add_num), len(reserve_set[label])))
             average_extend_set.extend(add_data)
 
     print(f"Average Filled Data size is {len(average_extend_set)}")
@@ -276,7 +276,22 @@ def main(encoder_type, label_type):
 
 
 if __name__ == "__main__":
-    encoder = "clap"
-    label = "origin"
-    for _ in range(3):
-        main(encoder, label)
+    # encoder = "clap"
+    # encoder = "pengi"
+    # label = "origin"
+    # for _ in range(1):
+    #     main(encoder, label)
+
+    for encoder in ["clap", "pengi"]:
+        label = "origin"
+        for _ in range(3):
+            print(f"Running with Encoder: {encoder}, Label: {label}")
+            main(encoder, label)
+
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--encoder_type", type=str, required=True)
+    # parser.add_argument("--label_type", type=str, default="origin")
+    # parser.add_argument("--round", type=int, default=0)  # 可选：打印轮数或用于种子等
+    # args = parser.parse_args()
+
+    # main(args.encoder_type, args.label_type)

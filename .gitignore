@@ -9,6 +9,7 @@ data/
 .DS_Store
 experiments/slurms/
 temp_memmap/
+src/library/
 
 # C extensions
 *.so

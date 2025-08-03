@@ -58,43 +58,44 @@ class AudioCapsProcessor:
             self.text_embeddings[split][aid] = [text_embs[idx].cpu().numpy()]
 
     def cluster_and_save(self, split):
-        print(f"[{split}] Clustering text embeddings...")
-        all_text_embs = np.vstack([e[0] for e in self.text_embeddings[split].values()])
-        text_kmeans = KMeans(n_clusters=self.text_cluster_k, random_state=42).fit(all_text_embs)
+        print(f"[{split}] Averaging text embeddings...")
+        # 对每个音频对应的文本嵌入求平均
+        avg_text_embeddings = {
+            aid: np.mean(np.array(embs), axis=0)
+            for aid, embs in self.text_embeddings[split].items()
+        }
 
-        text_labels = {}
-        audio_labels_from_text = {}
-        for i, aid in enumerate(self.text_embeddings[split]):
-            label = text_kmeans.labels_[i]
-            text_labels[aid] = [int(label)]
-            audio_labels_from_text[aid] = int(label)
+        print(f"[{split}] Clustering averaged text embeddings...")
+        all_avg_text_embs = np.vstack(list(avg_text_embeddings.values()))
+        text_kmeans = KMeans(n_clusters=self.text_cluster_k, random_state=42).fit(all_avg_text_embs)
+        audio_labels_from_text = {
+            aid: int(label)
+            for aid, label in zip(avg_text_embeddings.keys(), text_kmeans.labels_)
+        }
 
         print(f"[{split}] Clustering audio embeddings...")
         all_audio_embs = np.vstack(list(self.audio_embeddings[split].values()))
         audio_kmeans = KMeans(n_clusters=self.audio_cluster_k, random_state=42).fit(all_audio_embs)
+        text_labels_from_audio = {
+            aid: int(label)
+            for aid, label in zip(self.audio_embeddings[split].keys(), audio_kmeans.labels_)
+        }
 
-        audio_labels = {}
-        text_labels_from_audio = {}
-        for i, aid in enumerate(self.audio_embeddings[split]):
-            label = audio_kmeans.labels_[i]
-            audio_labels[aid] = int(label)
-            text_labels_from_audio[aid] = int(label)
-
-        print(f"[{split}] Saving json batches...")
+        print(f"[{split}] Preparing data for saving...")
         audio_data = []
         text_data = []
+
         for aid in self.audio_embeddings[split]:
             audio_data.append({
                 "embedding": self.audio_embeddings[split][aid].tolist(),
-                "label": audio_labels_from_text[aid],
+                "label": audio_labels_from_text[aid],  # 音频标签来源于文本聚类结果
                 "type": "audio",
                 "id": aid
             })
 
-            text_emb = self.text_embeddings[split][aid][0]
             text_data.append({
-                "embedding": text_emb.tolist(),
-                "label": text_labels_from_audio[aid],
+                "embedding": avg_text_embeddings[aid].tolist(),  # 文本用平均嵌入
+                "label": text_labels_from_audio[aid],  # 文本标签来源于音频聚类结果
                 "type": "text",
                 "id": aid
             })
@@ -127,12 +128,23 @@ class AudioCapsProcessor:
 
 
 if __name__ == "__main__":
-    from src.encoder.at_encoder import CLAP_Encoder 
+    # from src.encoder.at_encoder import CLAP_Encoder 
+
+    # processor = AudioCapsProcessor(
+    #     at_encoder=CLAP_Encoder(),
+    #     save_dir="data/embeddings/audiocaps/clap",
+    #     batch_size=1024,
+    #     text_cluster_k=5,
+    #     audio_cluster_k=5
+    # )
+    # processor.run_all()
+
+    from src.encoder.at_encoder import PengiAudioTextEncoder 
 
     processor = AudioCapsProcessor(
-        at_encoder=CLAP_Encoder(),
-        save_dir="data/embeddings/audiocaps",
-        batch_size=256,
+        at_encoder=PengiAudioTextEncoder(),
+        save_dir="data/embeddings/audiocaps/pengi",
+        batch_size=1024,
         text_cluster_k=5,
         audio_cluster_k=5
     )

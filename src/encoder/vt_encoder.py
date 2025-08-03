@@ -1,4 +1,5 @@
-import os, av
+import sys, os, av, cv2
+sys.path.append("/hpc2hdd/home/rsu704/MDI_RAG_project/SCAR_data_description/")
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import torch
 import numpy as np
@@ -102,16 +103,110 @@ class XCLIP_Encoder:
 
 
 
+from src.library.VideoCLIP.modeling import VideoCLIP_XL
+from src.library.VideoCLIP.utils.text_encoder import text_encoder
+
+
+
+
+class VideoCLIP_Encoder:
+    def __init__(self, model_path: str = "src/library/VideoCLIP/VideoCLIP-XL.bin", device: str = None, clip_len: int = 8):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.clip_len = clip_len
+        self.model = VideoCLIP_XL().to(self.device)
+        state_dict = torch.load(model_path, map_location=self.device)
+        self.model.load_state_dict(state_dict)
+        self.model.eval()
+
+        self.v_mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 3)
+        self.v_std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 3)
+
+    def _normalize(self, data: np.ndarray) -> np.ndarray:
+        return (data / 255.0 - self.v_mean) / self.v_std
+
+    def _read_and_process_video(self, video_path: str) -> torch.Tensor:
+        cap = cv2.VideoCapture(video_path)
+        frames = []
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frames.append(frame)
+        cap.release()
+
+        if len(frames) == 0:
+            raise ValueError(f"No frames found in video: {video_path}")
+
+        step = max(len(frames) // self.clip_len, 1)
+        sampled = frames[::step][:self.clip_len]
+
+        processed = []
+        for fr in sampled:
+            fr = fr[:, :, ::-1]  # BGR to RGB
+            fr = cv2.resize(fr, (224, 224))
+            fr = np.expand_dims(self._normalize(fr), axis=(0, 1))  # (1,1,H,W,C)
+            processed.append(fr)
+
+        vid_tube = np.concatenate(processed, axis=1)  # (1, clip_len, H, W, C)
+        vid_tube = np.transpose(vid_tube, (0, 1, 4, 2, 3))  # (B, T, C, H, W)
+        vid_tensor = torch.from_numpy(vid_tube).float().to(self.device)
+        return vid_tensor
+
+    def encode_video(self, video_path: str) -> torch.Tensor:
+        with torch.no_grad():
+            video_tensor = self._read_and_process_video(video_path)
+            feats = self.model.vision_model.get_vid_features(video_tensor).float()
+            feats = feats / feats.norm(dim=-1, keepdim=True)
+            return feats  # shape: (1, D)
+
+    def encode_text(self, texts: List[str]) -> torch.Tensor:
+        with torch.no_grad():
+            tokenized = text_encoder.tokenize(texts, truncate=True).to(self.device)
+            feats = self.model.text_model.encode_text(tokenized).float()
+            feats = feats / feats.norm(dim=-1, keepdim=True)
+            return feats  # shape: (len(texts), D)
+
+    def encode_videos_batch(self, video_paths: List[str], batch_size: int = 1) -> torch.Tensor:
+        all_feats = []
+        for i in tqdm(range(0, len(video_paths), batch_size), desc="Encoding video batch"):
+            batch = video_paths[i:i + batch_size]
+            batch_feats = [self.encode_video(p) for p in batch]
+            all_feats.append(torch.cat(batch_feats, dim=0).cpu())
+        return torch.cat(all_feats, dim=0)
+
+    def encode_texts_batch(self, texts: List[str], batch_size: int = 32) -> torch.Tensor:
+        all_feats = []
+        for i in tqdm(range(0, len(texts), batch_size), desc="Encoding text batch"):
+            batch = texts[i:i + batch_size]
+            feats = self.encode_text(batch)
+            all_feats.append(feats.cpu())
+        return torch.cat(all_feats, dim=0)
+
+    def compute_similarity(self, video_embeds: torch.Tensor, text_embeds: torch.Tensor) -> torch.Tensor:
+        video_embeds = video_embeds.to(self.device)
+        text_embeds = text_embeds.to(self.device)
+        return text_embeds @ video_embeds.T
+
 
 
 
 
 
 if __name__ == "__main__":
-    encoder = XCLIP_Encoder()
+    # encoder = XCLIP_Encoder()
 
-    video_embed = encoder.encode_video("data/MSR_VTT/MSRVTT_Videos/video/video1.mp4")       # (n, 512)
-    text_embeds = encoder.encode_text(["A man is singing.", "A cat is walking."])           # (n, 512)
+    # video_embed = encoder.encode_video("data/MSR_VTT/MSRVTT_Videos/video/video1.mp4")       # (n, 512)
+    # text_embeds = encoder.encode_text(["A man is singing.", "A cat is walking."])           # (n, 512)
+
+    # sim = encoder.compute_similarity(video_embed, text_embeds)
+    # print(video_embed.shape, text_embeds.shape)
+    # print(sim)
+
+
+
+    encoder = VideoCLIP_Encoder()
+    video_embed = encoder.encode_video("data/MSR_VTT/MSRVTT_Videos/video/video1.mp4")     # shape: (1, 768)
+    text_embeds = encoder.encode_texts_batch(["A man is singing.", "A cat is walking."])  # shape: (2, 768)
 
     sim = encoder.compute_similarity(video_embed, text_embeds)
     print(video_embed.shape, text_embeds.shape)

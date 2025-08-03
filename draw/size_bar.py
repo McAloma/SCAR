@@ -4,6 +4,32 @@ import numpy as np
 import os
 import matplotlib.ticker as ticker
 
+
+from matplotlib.font_manager import FontProperties ,fontManager
+import seaborn as sns
+font_path = 'draw/fonts/LinLibertine_R.ttf'
+fontManager.addfont(path=font_path)
+prop = FontProperties(fname=font_path)
+sns.set(
+    context='paper', 
+    style='ticks', 
+    palette='deep', 
+    font=prop.get_name(),
+    font_scale=2.5, 
+    rc={
+        'mathtext.fontset': 'stix',
+        'pdf.fonttype': 42,
+        'lines.linewidth': 3,
+        'lines.markersize': 6,
+        'axes.labelsize': 20,  
+        'legend.fontsize': 18,               # 🔸 控制 legend 字体大小
+        'legend.title_fontsize': 10,         # 🔸 如果你有 legend title 的话
+        'legend.labelspacing': 0.3,          # 🔸 控制图例项之间的垂直间距
+        'legend.handletextpad': 0.4,         # 🔸 图形和文字的水平距离
+        'legend.columnspacing': 0.6,         # 🔸 图例多列时的列间距
+    }
+)
+
 # ==== 1. 定义数据 ====
 size_records = [
     ('CIFAR-10', 'ResNet50', 89.92, 48.97, 50),
@@ -46,11 +72,17 @@ size_records = [
     ('COCO-Image', 'CoCa', 260, 58, 82),
     ('COCO-Image', 'SigLIP', 283, 53, 82),
 
-    ('MSR-VTT-Text', 'X-CLIP', 73, 7.13, 9),
-    ('MSR-VTT-Video', 'X-CLIP', 64.18, 7.77, 9),
+    ('MSR-VTT-Text', 'VideoCLIP', 74.7, 6.43, 9),
+    ('MSR-VTT-Text', 'X-CLIP', 72.7, 7.29, 9),
 
-    ('AudioCaps-Text', 'CLAP', 50.89, 40.53, 45),
-    ('AudioCaps-Audio', 'CLAP', 55.56, 40.40, 45),
+    ('MSR-VTT-Video', 'X-VideoCLIP', 74.7, 6.34, 9),
+    ('MSR-VTT-Video', 'X-CLIP', 72.6, 7.04, 9),
+
+    ('AudioCaps-Text', 'CLAP', 56.44, 40.13, 45),
+    ('AudioCaps-Text', 'Pengi', 65.63, 36.31, 45),
+
+    ('AudioCaps-Audio', 'CLAP', 50.88, 40.59, 45),   
+    ('AudioCaps-Audio', 'Pengi', 56.38, 36.35, 45),
 ]
 
 df = pd.DataFrame(size_records, columns=['Dataset', 'Model', 'Fou_size_k', 'Ext_size_k', 'Total_size_k'])
@@ -75,8 +107,8 @@ plt.gca().yaxis.set_minor_locator(ticker.LogLocator(base=2.0, subs='auto', numti
 plt.gca().yaxis.set_minor_formatter(ticker.NullFormatter())
 
 # plt.xticks(x + width / 2, df_avg['Dataset'], rotation=45, ha='right', fontsize=9)
-plt.xticks(x, df_avg['Dataset'],rotation=45, fontsize=9)
-plt.ylabel('Size (thousands)', fontsize=12)
+plt.xticks(x, df_avg['Dataset'],rotation=30, fontsize=12)
+plt.ylabel('Size (thousands)', fontsize=18)
 # plt.title('Average Total, Extension, and Foundation Size per Dataset', fontsize=14)
 plt.legend()
 
@@ -89,7 +121,7 @@ def add_labels_total(bars):
             height,
             f'{int(height)}',
             ha='center', va='bottom',
-            fontsize=7,
+            fontsize=8,
             fontweight='bold'
         )
 
@@ -101,7 +133,7 @@ def add_labels_ext(bars):
             height * 0.88,  # 数字放在柱底部内侧，0.05 倍柱高位置
             f'{int(height)}',
             ha='center', va='bottom',
-            fontsize=7,
+            fontsize=8,
             fontweight='bold',
         )
 
@@ -113,7 +145,7 @@ def add_labels_fou(bars):
             height,
             f'{int(height)}',
             ha='center', va='bottom',
-            fontsize=7,
+            fontsize=8,
             fontweight='bold'
         )
 
@@ -123,6 +155,6 @@ add_labels_fou(bars_fou)
 
 plt.tight_layout()
 os.makedirs('draw/pics', exist_ok=True)
-plt.savefig('draw/pics/data_size_barplot_avg.png', dpi=300)
+plt.savefig('draw/pics/data_size_barplot_avg.png', bbox_inches='tight', dpi=300)
 plt.close()
 print("✅ 平均柱状图已保存到 draw/pics/data_size_barplot.png")
