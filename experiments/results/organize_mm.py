@@ -63,7 +63,8 @@ def extract_metrics_from_txt_v3(path):
 
 # 示例使用
 if __name__ == "__main__":
-    input_file = "experiments/results/msrvtt_experiment_results.txt"  # 修改为你的实际路径
+    # input_file = "experiments/results/msrvtt_experiment_results.txt"  # 修改为你的实际路径
+    input_file = "test_hanlin/results/hanlin_result.txt"
     result = extract_metrics_from_txt_v3(input_file)
 
     sorted_result = dict(sorted(result.items()))

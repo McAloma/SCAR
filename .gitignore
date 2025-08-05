@@ -6,6 +6,8 @@ __pycache__/
 # self
 ckpts/
 data/
+test/
+test_hanlin/
 .DS_Store
 experiments/slurms/
 temp_memmap/

@@ -348,3 +348,45 @@ if __name__ == "__main__":
     print("        &       & Pengi\cite{pengi}       ", format_result_string(AudioCaps_pengi_audio, 45178))
     print("\\hline")
     print("\n")
+
+
+    # TEST：CONCH
+    hanlin_image20 = [
+        [0.2754, 1949450, 1204874.4112099824, 0.2746, 0.2819, 0.29, 0.2548],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_image20, 3199983))
+
+    hanlin_image30 = [
+        [0.2405, 1975064, 1684956.2900355794, 0.2604, 0.2338, 0.2522, 0.2473],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_image30, 3199983))
+
+    hanlin_image40 = [
+        [0.2332, 1928740, 2275920.110318825, 0.2263, 0.2478, 0.232, 0.2325],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_image40, 3199983))
+
+    hanlin_image50 = [
+        [0.2434, 1924638, 2885009.3251153864, 0.2312, 0.2255, 0.2406, 0.2263],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_image50, 3199983))
+
+    hanlin_text20 = [
+        [0.2611, 82501, 1177483.3280753577, 0.2343, 0.2357, 0.217, 0.2766],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_text20, 136403))
+
+    hanlin_text30 = [
+        [0.3339, 82015, 1891090.381625905, 0.3679, 0.3719, 0.2255, 0.2908],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_text30, 136403))
+
+    hanlin_text40 = [
+        [0.1575, 82003, 251356.11060053157, 0.1888, 0.1682, 0.161, 0.1644],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_text40, 136403))
+
+    hanlin_text50 = [
+        [0.1329, 81868, 3127268.607229212, 0.1582, 0.127, 0.1314, 0.125],
+    ]
+    print("CONCH & Hanlin", format_result_string(hanlin_text50, 136403))
